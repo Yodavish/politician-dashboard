@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FinancialDisclosure>
+  <Member>
+    <Prefix />
+    <Last>Aaron</Last>
+    <First>Richard</First>
+    <Suffix />
+    <FilingType>D</FilingType>
+    <StateDst>MI04</StateDst>
+    <Year>2025</Year>
+    <FilingDate>3/24/2025</FilingDate>
+    <DocID>40003749</DocID>
+  </Member>
+  <Member>
+    <Prefix>Mr.</Prefix>
+    <Last>Aboujaoude</Last>
+    <First>Rock Adel</First>
+    <Suffix>Jr.</Suffix>
+    <FilingType>C</FilingType>
+    <StateDst>FL03</StateDst>
+    <Year>2025</Year>
+    <FilingDate>11/12/2025</FilingDate>
+    <DocID>10072809</DocID>
+  </Member>
+  <Member>
+    <Prefix />
+    <Last>Adair</Last>
+    <First>Patti</First>
+    <Suffix />
+    <FilingType>C</FilingType>
+    <StateDst>OR05</StateDst>
+    <Year>2025</Year>
+    <FilingDate>3/17/2026</FilingDate>
+    <DocID>10073223</DocID>
+  </Member>
+  <Member>
+    <Prefix />
+    <Last>Aderholt</Last>
+    <First>Robert B.</First>
+    <Suffix />
+    <FilingType>P</FilingType>
+    <StateDst>AL04</StateDst>
+    <Year>2025</Year>
+    <FilingDate>9/10/2025</FilingDate>
+    <DocID>20032062</DocID>
+  </Member>
+  <Member>
+    <Prefix />
+    <Last>Allen</Last>
+    <First>Richard W.</First>
+    <Suffix />
+    <FilingType>P</FilingType>
+    <StateDst>GA12</StateDst>
+    <Year>2025</Year>
+    <FilingDate>1/16/2025</FilingDate>
+    <DocID>20026537</DocID>
+  </Member>
+  <Member>
+    <Prefix />
+    <Last>Allen</Last>
+    <First>Richard W.</First>
+    <Suffix />
+    <FilingType>P</FilingType>
+    <StateDst>GA12</StateDst>
+    <Year>2025</Year>
+    <FilingDate>2/20/2025</FilingDate>
+    <DocID>20026727</DocID>
+  </Member>
+  <Member>
+    <Prefix />
+    <Last>Bilirakis</Last>
+    <First>Gus M.</First>
+    <Suffix />
+    <FilingType>P</FilingType>
+    <StateDst>FL12</StateDst>
+    <Year>2025</Year>
+    <FilingDate>2/6/2025</FilingDate>
+    <DocID>8220747</DocID>
+  </Member>
+</FinancialDisclosure>
