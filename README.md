@@ -5,8 +5,10 @@ for publicly available U.S. politician stock trade disclosures. Data is
 ingested and parsed, stored in PostgreSQL, exposed through a read-only
 FastAPI API, and displayed in a React web dashboard.
 
+
 ## Demo
-https://github.com/user-attachments/assets/2329764f-53da-4822-a3ad-4b7758d1a0ed
+https://github.com/user-attachments/assets/dab255d5-7eee-4e2a-a5af-341e3e981bb1
+
 
 ## Project overview
 
