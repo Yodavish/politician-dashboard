@@ -7,8 +7,8 @@ stock-trade disclosures (Financial Disclosures / Periodic Transaction Reports).
 
 This project collects publicly available House member stock trade
 disclosures, parses and normalizes the source data, stores the resulting
-records in PostgreSQL, and exposes them through a read-only REST API ready
-for a future web dashboard.
+records in PostgreSQL, exposes them through a read-only REST API, and serves
+a web dashboard (`dashboard/`) for exploring the data.
 
 ## Current V1 scope
 
@@ -16,6 +16,7 @@ for a future web dashboard.
 - Parsing and normalization of transaction data.
 - Storage in PostgreSQL (Postgres 16) via SQL migrations.
 - A read-only FastAPI REST API (`/health`, `/politicians`, `/filings`, `/transactions`).
+- A React + TypeScript web dashboard (`dashboard/`) that consumes that API.
 
 ## Architecture / project structure
 
@@ -39,8 +40,15 @@ politician_dashboard/
     └── migrate.py        # migration runner
 
 compose.yaml              # Docker service for PostgreSQL
-pyproject.toml            # dependencies (managed by uv)
-tests/                    # pytest suite + PDF fixtures
+pyproject.toml            # backend dependencies (managed by uv)
+tests/                    # backend pytest suite + PDF fixtures
+
+dashboard/                # Web dashboard (React + Vite + TypeScript)
+├── src/api/              #   typed API response types + fetch wrapper
+├── src/hooks/            #   URL filter state, politician-name lookup
+├── src/components/       #   layout, health badge, pagination, states
+├── src/pages/            #   transactions, politicians, profile, filing
+└── src/lib/              #   formatting helpers
 ```
 
 ## Prerequisites
@@ -48,6 +56,7 @@ tests/                    # pytest suite + PDF fixtures
 - **Python 3.14** (see `.python-version`)
 - **uv** for dependency management
 - **Docker** (with Compose) to run **PostgreSQL 16**
+- **Node.js 22+** (with npm) for the dashboard
 
 ## Local setup
 
@@ -90,6 +99,30 @@ Once the API is running, interactive docs are available at:
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 - OpenAPI JSON: `http://localhost:8000/openapi.json`
+
+## Running the web dashboard
+
+The dashboard is a separate Vite + React + TypeScript app in `dashboard/`.
+Install its dependencies and start the dev server:
+
+```sh
+cd dashboard
+npm install
+npm run dev
+```
+
+With the API running on `http://127.0.0.1:8000`, open
+`http://localhost:5173`. The Vite dev server proxies `/api` to the backend
+(host configurable via the `API_TARGET` env var, default
+`http://127.0.0.1:8000`), so no CORS configuration is needed on the API.
+
+Production build, tests, and lint:
+
+```sh
+npm run build     # typecheck (tsc -b) + production bundle
+npm test          # vitest unit tests
+npm run lint      # oxlint
+```
 
 ## Running the House Clerk ingestion CLI
 
