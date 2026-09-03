@@ -1,7 +1,9 @@
 # Politician Dashboard
 
-Backend for ingesting, storing, and serving U.S. House of Representatives
-stock-trade disclosures (Financial Disclosures / Periodic Transaction Reports).
+An exploration of agentic AI development that builds an end-to-end pipeline
+for publicly available U.S. politician stock trade disclosures. Data is
+ingested and parsed, stored in PostgreSQL, exposed through a read-only
+FastAPI API, and displayed in a React web dashboard.
 
 ## Project overview
 
