@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports: ["5432:5432"]
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      PYTHONPATH: .
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1️⃣  Python 3.14
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      # 2️⃣  Install uv using official action
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      # 3️⃣  Install backend deps
+      - name: Install backend deps
+        run: uv sync --dev --frozen
+
+      # 4️⃣  Run backend tests
+      - name: Run backend tests
+        run: uv run pytest
+
+      # 5️⃣  Install Node 22+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      # 6️⃣  Install frontend deps
+      - name: Install frontend deps
+        run: |
+          cd dashboard
+          npm ci
+
+      # 7️⃣  Run frontend tests
+      - name: Run frontend tests
+        run: |
+          cd dashboard
+          npm test
+
+      # 8️⃣  Run frontend lint
+      - name: Run frontend lint
+        run: |
+          cd dashboard
+          npm run lint
+
+      # 9️⃣  Build production bundle
+      - name: Build production bundle
+        run: |
+          cd dashboard
+          npm run build
