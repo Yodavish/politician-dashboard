@@ -51,11 +51,15 @@ jobs:
       - name: Install backend deps
         run: uv sync --dev --frozen
 
-      # 4️⃣  Run backend tests
+      # 4️⃣  Audit Python dependencies
+      - name: Audit Python dependencies
+        run: uv audit --frozen
+
+      # 5️⃣  Run backend tests
       - name: Run backend tests
         run: uv run pytest
 
-      # 5️⃣  Install Node 22+
+      # 6️⃣  Install Node 22+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -63,25 +67,31 @@ jobs:
           cache: "npm"
           cache-dependency-path: dashboard/package-lock.json
 
-      # 6️⃣  Install frontend deps
+      # 7️⃣  Install frontend deps
       - name: Install frontend deps
         run: |
           cd dashboard
           npm ci
 
-      # 7️⃣  Run frontend tests
+      # 8️⃣  Audit frontend dependencies
+      - name: Audit frontend dependencies
+        run: |
+          cd dashboard
+          npm audit --audit-level=high
+
+      # 9️⃣  Run frontend tests
       - name: Run frontend tests
         run: |
           cd dashboard
           npm test
 
-      # 8️⃣  Run frontend lint
+      # 10  Run frontend lint
       - name: Run frontend lint
         run: |
           cd dashboard
           npm run lint
 
-      # 9️⃣  Build production bundle
+      # 11  Build production bundle
       - name: Build production bundle
         run: |
           cd dashboard
