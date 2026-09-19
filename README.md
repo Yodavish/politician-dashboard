@@ -88,6 +88,7 @@ politician_dashboard/
 compose.yaml              # Docker service for PostgreSQL
 pyproject.toml            # backend dependencies (managed by uv)
 tests/                    # backend pytest suite + PDF fixtures
+tools/ai_review/          # advisory AI code reviewer (GitHub API + Ollama model)
 
 dashboard/                # Web dashboard (React + Vite + TypeScript)
 ├── src/api/              #   typed API response types + fetch wrapper
@@ -112,8 +113,23 @@ The CI pipeline includes:
 - Production frontend build
 - Python dependency vulnerability auditing with `uv audit`
 - npm dependency vulnerability auditing with `npm audit`
+- Advisory AI-assisted code review on every pull request (see below)
 
 The workflow uses least-privilege `GITHUB_TOKEN` permissions and grants the CI workflow only the repository access it requires.
+
+### Advisory AI-assisted code review
+
+An `ai-review` workflow complements the CI checks with an automated, **advisory** AI code review on every pull request (`opened`, `synchronize`, `reopened`). It runs on a GitHub-hosted `ubuntu-latest` runner, installs a local Ollama server, and uses the `qwen2.5-coder:7b` model to analyze the PR diff. Findings that resolve to an actual changed line are posted as inline review comments; the rest and the overall summary appear in the review body.
+
+Review workflow security characteristics:
+
+- **The review never blocks merging** — it always posts as a `COMMENT` event.
+- **Pull request code is never checked out or executed.** The workflow checks out only the base branch (so the reviewer always runs the repository's own `tools/` code) and reads the diff and file contents through the GitHub REST API.
+- **Limited permissions.** The job requests only `contents: read` and `pull-requests: write`; no other secrets are available, and PR content is sent to the model as untrusted data (prompt injection is treated as data, not instructions).
+- **Fork and Dependabot pull requests** run with a read-only token; for those, the review is written to the workflow step summary instead of being posted, and the job never fails the pipeline.
+- **No secret leakage.** The `GITHUB_TOKEN` is only ever sent as an `Authorization` header to `api.github.com`; model output is never executed as a command.
+
+The reviewer itself lives in `tools/ai_review/` and runs with `python -m tools.ai_review`. Individual check runs are safe to repeat: a review is posted at most once per head commit.
 
 ## Security & Dependency Management
 
@@ -244,7 +260,7 @@ The ingestion pipeline fetches the yearly index, downloads each PTR PDF, extract
 - [x] CodeQL security analysis
 - [x] Dependency auditing
 - [x] Dependabot
-- [ ] AI-assisted code review
+- [x] AI-assisted code review
 - [ ] Dockerized application deployment
 - [ ] AWS deployment
 - [ ] Production health checks and monitoring

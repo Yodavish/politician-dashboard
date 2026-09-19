@@ -1,0 +1,85 @@
+name: AI Code Review
+
+# Advisory, automated AI code review for pull requests. It runs on a
+# GitHub-hosted runner using a local Ollama model and the GitHub REST API.
+# It never checks out or executes pull request code, never uses the event
+# payload (empty on fork PRs), and never receives or hands over secrets.
+# The resulting review is advisory only and never blocks merging.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    env:
+      OLLAMA_HOST: 127.0.0.1:11435
+      OLLAMA_URL: http://127.0.0.1:11435
+      AI_REVIEW_MODEL: qwen2.5-coder:7b
+    steps:
+      # Check out only the base branch so the reviewer runs the repository's
+      # own tools/ code rather than whatever the pull request may have changed.
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install project dependencies
+        run: uv sync --dev --frozen
+
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Cache Ollama models
+        uses: actions/cache@v4
+        with:
+          # $HOME on ubuntu-latest runners is /home/runner; runner.home is not
+          # a valid runner context property, so the path is hardcoded here and
+          # must match the $HOME/.ollama/models used by the serve step below.
+          path: /home/runner/.ollama/models
+          key: ollama-models-${{ runner.os }}-${{ env.AI_REVIEW_MODEL }}
+
+      # Start our own server instance on a dedicated port so it never
+      # conflicts with any service the installer may have created, and so
+      # models are stored under the runner's home directory (cacheable).
+      - name: Start Ollama server
+        run: |
+          export OLLAMA_MODELS="$HOME/.ollama/models"
+          nohup ollama serve >/tmp/ollama.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fs http://127.0.0.1:11435/ >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Ollama server failed to start" >&2
+          tail -n 30 /tmp/ollama.log >&2
+          exit 1
+
+      - name: Pull review model
+        run: ollama pull "$AI_REVIEW_MODEL"
+
+      - name: Run AI code review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          uv run --frozen --no-sync python -m tools.ai_review
