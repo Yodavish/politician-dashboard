@@ -50,7 +50,7 @@ def transaction_dict(row) -> dict:
         "txn_date": txn_date,
         "notification_date": notification_date,
         "amount_min": float(amount_min),
-        "amount_max": float(amount_max),
+        "amount_max": float(amount_min),
         "amount_raw": amount_raw,
         "owner": owner_token,
         "filing_status": filing_status,
