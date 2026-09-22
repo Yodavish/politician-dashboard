@@ -4,6 +4,10 @@ An end-to-end software engineering project for collecting and exploring publicly
 
 The project also serves as a practical exploration of modern software engineering practices, including automated testing, CI/CD, static security analysis, dependency auditing, and automated dependency management.
 
+## Live Demo
+
+[Congress Trade Tracker](http://52.207.143.200/transactions) — currently served from the temporary EC2 instance's public IP. Custom domain and HTTPS are planned for a later milestone.
+
 ## Demo
 
 https://github.com/user-attachments/assets/dab255d5-7eee-4e2a-a5af-341e3e981bb1
@@ -17,6 +21,7 @@ https://github.com/user-attachments/assets/dab255d5-7eee-4e2a-a5af-341e3e981bb1
 - URL-based transaction filtering and pagination
 - Automated backend and frontend testing
 - GitHub Actions CI with PostgreSQL integration testing
+- GitHub Actions continuous deployment to a single production EC2 instance over SSH
 - CodeQL static security analysis
 - Python and npm dependency vulnerability auditing
 - Dependabot security updates and scheduled dependency updates
@@ -130,6 +135,43 @@ Review workflow security characteristics:
 - **No secret leakage.** The `GITHUB_TOKEN` is only ever sent as an `Authorization` header to `api.github.com`; model output is never executed as a command.
 
 The reviewer itself lives in `tools/ai_review/` and runs with `python -m tools.ai_review`. Individual check runs are safe to repeat: a review is posted at most once per head commit.
+
+### Continuous deployment (production)
+
+A `Deploy to EC2` GitHub Actions workflow (`.github/workflows/cd.yml`) updates the single production EC2 instance after every push to `main`. It runs post-merge and is **not** a merge gate: CI and the advisory AI review remain the only pull-request checks.
+
+How it works:
+
+- The job connects to the EC2 instance over SSH using repository secrets only (no AWS access keys involved).
+- On the instance it `git fetch`es `main`, checks out and hard-resets `/opt/politician-dashboard` to `origin/main`, then rebuilds the `api` and `web` images and recreates those two services with `docker compose`.
+- PostgreSQL (`db`), its named `pgdata` volume, and the production `.env` are never touched: the workflow never runs `docker compose down` and never runs migrations or ingestion.
+- Once the API responds end-to-end through Nginx (`curl --fail http://127.0.0.1/api/health`, retried for up to 5 minutes), the job prints the deployed commit and succeeds. A failed health check fails the job and reports the service status.
+
+Required GitHub repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Contents |
+| --- | --- |
+| `EC2_HOST` | Public hostname or IP address of the EC2 instance. |
+| `EC2_USER` | SSH user for the instance (`ec2-user` on Amazon Linux 2023). |
+| `EC2_SSH_KEY` | Private key (PEM/OpenSSH format) used to connect, saved as a multi-line secret that preserves newlines. |
+| `EC2_PORT` | SSH port; defaults to `22` when unset. |
+| `EC2_KNOWN_HOSTS` | Optional but recommended: the instance host-key lines, e.g. the output of `ssh-keyscan <EC2_HOST>`, so SSH host-key verification is strict (`StrictHostKeyChecking=yes`). When unset, the workflow pins the host key observed on the first deployment (trust-on-first-use with `StrictHostKeyChecking=accept-new`), which still rejects a changed key on subsequent runs. |
+
+Security properties:
+
+- The workflow declares `permissions: {}`; it receives no `GITHUB_TOKEN` and can perform no repository actions.
+- No `pull_request_target`, no AWS credentials, and no secret values are written anywhere in the repository.
+- The private key is written to a throwaway `$HOME/.ssh/id_ec2` file on the ephemeral runner and used only inside the job.
+- Only one deployment runs at a time (`concurrency` group); additional pushes queue rather than cancelling an in-flight deploy.
+
+Manual steps stay on the instance. Apply SQL migrations when a release requires them with:
+
+```bash
+cd /opt/politician-dashboard
+docker compose run --rm api python -m politician_dashboard.migrations.migrate
+```
+
+The House Clerk ingestion is likewise still run manually.
 
 ## Security & Dependency Management
 
@@ -261,7 +303,8 @@ The ingestion pipeline fetches the yearly index, downloads each PTR PDF, extract
 - [x] Dependency auditing
 - [x] Dependabot
 - [x] AI-assisted code review
-- [ ] Dockerized application deployment
-- [ ] AWS deployment
+- [x] Dockerized application deployment
+- [x] AWS deployment
+- [x] Continuous deployment workflow (SSH to EC2)
 - [ ] Production health checks and monitoring
 
