@@ -21,7 +21,7 @@ https://github.com/user-attachments/assets/dab255d5-7eee-4e2a-a5af-341e3e981bb1
 - URL-based transaction filtering and pagination
 - Automated backend and frontend testing
 - GitHub Actions CI with PostgreSQL integration testing
-- GitHub Actions continuous deployment to a single production EC2 instance over SSH
+- GitHub Actions continuous deployment to a single production EC2 instance via AWS Systems Manager (OIDC)
 - CodeQL static security analysis
 - Python and npm dependency vulnerability auditing
 - Dependabot security updates and scheduled dependency updates
@@ -138,30 +138,132 @@ The reviewer itself lives in `tools/ai_review/` and runs with `python -m tools.a
 
 ### Continuous deployment (production)
 
-A `Deploy to EC2` GitHub Actions workflow (`.github/workflows/cd.yml`) updates the single production EC2 instance after every push to `main`. It runs post-merge and is **not** a merge gate: CI and the advisory AI review remain the only pull-request checks.
+A `Deploy to EC2 (SSM Run Command)` GitHub Actions workflow (`.github/workflows/cd.yml`) updates the single production EC2 instance after every push to `main`. It runs post-merge and is **not** a merge gate: CI and the advisory AI review remain the only pull-request checks.
 
-How it works:
+Architecture:
 
-- The job connects to the EC2 instance over SSH using repository secrets only (no AWS access keys involved).
-- On the instance it `git fetch`es `main`, checks out and hard-resets `/opt/politician-dashboard` to `origin/main`, then rebuilds the `api` and `web` images and recreates those two services with `docker compose`.
-- PostgreSQL (`db`), its named `pgdata` volume, and the production `.env` are never touched: the workflow never runs `docker compose down` and never runs migrations or ingestion.
-- Once the API responds end-to-end through Nginx (`curl --fail http://127.0.0.1/api/health`, retried for up to 5 minutes), the job prints the deployed commit and succeeds. A failed health check fails the job and reports the service status.
+- The runner authenticates to AWS with **short-lived credentials minted from GitHub Actions OIDC** — no long-lived AWS access keys and no SSH keys exist anywhere.
+- It assumes a dedicated IAM role whose trust policy is restricted to this repository's `main` branch.
+- It invokes **AWS Systems Manager Run Command** (`AWS-RunShellScript`) against the production instance, which runs the deployment script at `/opt/politician-dashboard/deploy.sh`.
+- The job waits for the SSM invocation to reach a terminal state and then prints the command output. A failed deployment (including a failed health check) fails the job and surfaces the SSM standard output/error, including `docker compose ps`.
+- The deployment script resets `/opt/politician-dashboard` to `origin/main`, rebuilds the `api` and `web` images, recreates only those two services, and never touches PostgreSQL, its `pgdata` volume, or `.env`. It never runs `docker compose down`, migrations, or ingestion.
 
-Required GitHub repository secrets (Settings → Secrets and variables → Actions):
+#### GitHub Actions required secrets
 
 | Secret | Contents |
 | --- | --- |
-| `EC2_HOST` | Public hostname or IP address of the EC2 instance. |
-| `EC2_USER` | SSH user for the instance (`ec2-user` on Amazon Linux 2023). |
-| `EC2_SSH_KEY` | Private key (PEM/OpenSSH format) used to connect, saved as a multi-line secret that preserves newlines. |
-| `EC2_PORT` | SSH port; defaults to `22` when unset. |
-| `EC2_KNOWN_HOSTS` | Optional but recommended: the instance host-key lines, e.g. the output of `ssh-keyscan <EC2_HOST>`, so SSH host-key verification is strict (`StrictHostKeyChecking=yes`). When unset, the workflow pins the host key observed on the first deployment (trust-on-first-use with `StrictHostKeyChecking=accept-new`), which still rejects a changed key on subsequent runs. |
+| `AWS_ROLE_TO_ASSUME` | ARN of the IAM role the workflow assumes (see below), e.g. `arn:aws:iam::123456789012:role/PoliticianDashboard-CD`. |
+| `AWS_REGION` | AWS region hosting the instance, e.g. `us-east-1`. |
+| `EC2_INSTANCE_ID` | ID of the production EC2 instance, e.g. `i-0abcd1234efgh5678` |
+
+The instance needs no SSH ingress from GitHub; it only needs the SSM agent and an IAM instance profile.
+
+#### One-time AWS setup
+
+1. **Create the OIDC identity provider for GitHub** (once per account, if absent): Provider URL `https://token.actions.githubusercontent.com`, audience `sts.amazonaws.com`.
+
+2. **Create an IAM role** (e.g. `PoliticianDashboard-CD`) with a trust policy restricted to this repository's `main` branch:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+         },
+         "Action": "sts:AssumeRoleWithWebIdentity",
+         "Condition": {
+           "StringEquals": {
+             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+           },
+           "StringLike": {
+             "token.actions.githubusercontent.com:sub": "repo:YoDavish/politician-dashboard:ref:refs/heads/main"
+           }
+         }
+       }
+     ]
+   }
+   ```
+
+3. **Attach a least-privilege policy** scoping Run Command to the production instance and the `AWS-RunShellScript` document:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Sid": "SendRunCommandToProductionInstance",
+         "Effect": "Allow",
+         "Action": "ssm:SendCommand",
+         "Resource": [
+           "arn:aws:ec2:REGION:ACCOUNT_ID:instance/INSTANCE_ID",
+           "arn:aws:ssm:REGION:ACCOUNT_ID:document/AWS-RunShellScript"
+         ]
+       },
+       {
+         "Sid": "ReadCommandInvocationStatus",
+         "Effect": "Allow",
+         "Action": "ssm:GetCommandInvocation",
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+   Replace `REGION`, `ACCOUNT_ID`, and `INSTANCE_ID` with the AWS region, account ID, and the production instance ID (the same value as the `EC2_INSTANCE_ID` GitHub secret).
+
+   Why the two statements: `ssm:SendCommand` supports resource-level permissions, so it is scoped to the specific instance ARN and the exact SSM document the workflow runs. `ssm:GetCommandInvocation` does **not** support resource-level permissions in AWS IAM — it is keyed by the command/invocation the caller has permission to have created — so AWS requires `Resource: "*"` for that action. Keeping it in its own statement confines the wildcard to status reads of the workflow's own commands and nothing else.
+
+4. **Configure the EC2 instance for SSM**: attach an IAM instance profile whose policy permits SSM management, e.g. the AWS managed policy `AmazonSSMManagedInstanceCore`. Confirm the `amazon-ssm-agent` service is installed and running.
+
+5. **Place the deployment script** at `/opt/politician-dashboard/deploy.sh` and make it executable. Because it is not a tracked file, `git reset --hard origin/main` leaves it in place:
+
+   ```bash
+   #!/usr/bin/env bash
+   set -euo pipefail
+
+   cd /opt/politician-dashboard
+
+   git fetch --prune origin main
+   git checkout main
+   git reset --hard origin/main
+   if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
+     echo "Expected production branch 'main'" >&2
+     exit 1
+   fi
+
+   docker compose build api web
+   docker compose up -d api web
+
+   echo "--- running services ---"
+   docker compose ps
+
+   attempt=0
+   until curl --fail --silent --show-error http://127.0.0.1/api/health >/dev/null 2>&1; do
+     attempt=$((attempt + 1))
+     if [ "$attempt" -ge 60 ]; then
+       echo "Application did not become healthy within 300s" >&2
+       docker compose ps >&2
+       exit 1
+     fi
+     sleep 5
+   done
+
+   echo "--- health check ---"
+   curl --fail --silent --show-error http://127.0.0.1/api/health
+   echo
+   echo "Deployed $(git rev-parse --short HEAD) to production"
+   ```
+
+6. **Configure the three GitHub Actions secrets** and delete the obsolete SSH secrets (`EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`, `EC2_PORT`, `EC2_KNOWN_HOSTS`) that the previous SSH-based workflow used.
 
 Security properties:
 
-- The workflow declares `permissions: {}`; it receives no `GITHUB_TOKEN` and can perform no repository actions.
-- No `pull_request_target`, no AWS credentials, and no secret values are written anywhere in the repository.
-- The private key is written to a throwaway `$HOME/.ssh/id_ec2` file on the ephemeral runner and used only inside the job.
+- The workflow grants only `id-token: write`; it has no `GITHUB_TOKEN` and performs no repository actions.
+- The assumed role is restricted to `main` of this repository, so only that branch can trigger a deployment.
+- Short-lived OIDC credentials: no long-lived AWS access keys or SSH private keys appear in the repository or in GitHub secrets.
 - Only one deployment runs at a time (`concurrency` group); additional pushes queue rather than cancelling an in-flight deploy.
 
 Manual steps stay on the instance. Apply SQL migrations when a release requires them with:
@@ -305,6 +407,6 @@ The ingestion pipeline fetches the yearly index, downloads each PTR PDF, extract
 - [x] AI-assisted code review
 - [x] Dockerized application deployment
 - [x] AWS deployment
-- [x] Continuous deployment workflow (SSH to EC2)
+- [x] Continuous deployment workflow (SSM Run Command + OIDC)
 - [ ] Production health checks and monitoring
 

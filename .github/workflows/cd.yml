@@ -1,0 +1,122 @@
+name: Deploy to EC2 (SSM Run Command)
+
+# Continuous deployment for the single production EC2 instance. Runs after a
+# push/merge to `main` and is not a merge gate: CI and the advisory AI review
+# are the only pull-request checks. The job authenticates to AWS through
+# GitHub Actions OIDC (short-lived credentials, no long-lived access keys and
+# no SSH keys), assumes a dedicated IAM role whose trust policy is restricted
+# to this repository's `main` branch, then drives the deployment on the
+# instance with AWS Systems Manager Run Command (AWS-RunShellScript), which
+# runs the deployment script at /opt/politician-dashboard/deploy.sh.
+
+on:
+  push:
+    branches: [main]
+
+# id-token: write is required to mint the OIDC token the runner exchanges for
+# AWS credentials. No GITHUB_TOKEN permission is granted; the deployment
+# performs no repository actions.
+permissions:
+  id-token: write
+
+# Only one production deployment at a time; newer pushes queue behind the
+# in-flight deployment instead of cancelling it.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+    steps:
+      - name: Assume AWS CD role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: politician-dashboard-cd
+          role-duration-seconds: 1800
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Validate configuration and assumed identity
+        run: |
+          set -euo pipefail
+          : "${AWS_REGION:?missing secret: AWS_REGION}"
+          : "${AWS_ROLE_TO_ASSUME:?missing secret: AWS_ROLE_TO_ASSUME}"
+          : "${EC2_INSTANCE_ID:?missing secret: EC2_INSTANCE_ID}"
+          aws sts get-caller-identity
+
+      - name: Send deployment command to EC2 via SSM
+        id: send-command
+        run: |
+          set -euo pipefail
+          command_id=$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --parameters '{"commands":["bash /opt/politician-dashboard/deploy.sh"]}' \
+            --comment "Deploy $GITHUB_SHA to production" \
+            --query Command.CommandId --output text)
+          echo "Sent SSM command $command_id"
+          echo "command-id=$command_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for deployment to finish
+        id: wait
+        env:
+          COMMAND_ID: ${{ steps.send-command.outputs.command-id }}
+        run: |
+          set -euo pipefail
+          status="Pending"
+          attempt=0
+          while [ "$status" = "Pending" ] || [ "$status" = "InProgress" ] || [ "$status" = "Delayed" ]; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 90 ]; then
+              echo "Deployment did not finish within ~15 minutes (last status: $status)" >&2
+              exit 1
+            fi
+            sleep 10
+            status=""
+            for i in 1 2 3 4 5; do
+              if status=$(aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$EC2_INSTANCE_ID" \
+                  --query Status --output text 2>/dev/null); then
+                break
+              fi
+              sleep 5
+            done
+            if [ -z "$status" ]; then
+              echo "Could not retrieve invocation for command $COMMAND_ID" >&2
+              exit 1
+            fi
+            echo "status: $status"
+          done
+          echo "final-status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Report deployment result
+        env:
+          COMMAND_ID: ${{ steps.send-command.outputs.command-id }}
+          FINAL_STATUS: ${{ steps.wait.outputs.final-status }}
+        run: |
+          set -euo pipefail
+          stdout=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query StandardOutputContent --output text || true)
+          stderr=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query StandardErrorContent --output text || true)
+          if [ "$FINAL_STATUS" != "Success" ]; then
+            echo "Deployment FAILED (status: $FINAL_STATUS)" >&2
+            echo "--- standard output ---" >&2
+            printf '%s\n' "$stdout" >&2
+            echo "--- standard error ---" >&2
+            printf '%s\n' "$stderr" >&2
+            exit 1
+          fi
+          echo "Deployment succeeded ($FINAL_STATUS)"
+          echo "--- standard output ---"
+          printf '%s\n' "$stdout"
