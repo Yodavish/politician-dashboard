@@ -26,6 +26,9 @@ from politician_dashboard.ingest.sources.senate_efd import (
     SenateEfdSource,
     SenateIndexError,
     SenateStateResolveError,
+    _given_names_agree,
+    _office_name_parts,
+    _resolve_state,
     classify_senate_doc_id,
     classify_view_link,
     parse_agreement_html,
@@ -322,6 +325,213 @@ class TestParseSenatorsXml:
     def test_rejects_wrong_root(self):
         with pytest.raises(SenateStateResolveError):
             parse_senators_xml(_load_fixture("senators_wrong_root.xml"))
+
+
+class TestSenateStateResolution:
+    """Resolving eFD display names against the official senators listing.
+
+    These cases come from the live 2026 eFD listing (EC2 capture). The eFD
+    office cell shows the fuller registered name (``"McConnell, A. Mitchell
+    Jr. (Senator)"``) while the official ``senators_cfm.xml`` lists the
+    preferred given name (``Mitch``). Resolution is anchored on an exact last
+    name and matches the official *primary* given name via an exact token or
+    a bounded, explicitly enumerated given-name relation
+    (:data:`_DIMINUTIVE_FORMS`) -- never via an arbitrary string-prefix test,
+    and it must refuse to guess (raise :class:`SenateStateResolveError`) when
+    identity cannot be established unambiguously.
+    """
+
+    @pytest.mark.parametrize(
+        ("office", "first", "last", "expected"),
+        [
+            # Middle name reveals the nickname: eFD "A. Mitchell Jr." ->
+            # official primary "mitch" (truncation of the eFD token
+            # "mitchell").
+            ("McConnell, A. Mitchell Jr. (Senator)", "A. Mitchell Jr.", "McConnell", "KY"),
+            # Full given name vs standard diminutive official primary.
+            ("Banks, James E. (Senator)", "James E.", "Banks", "IN"),
+            # Plain exact given names.
+            ("Armstrong, Alan (Senator)", "Alan", "Armstrong", "OK"),
+            ("King, Angus (Senator)", "Angus", "King", "ME"),
+            ("Smith, Tina (Senator)", "Tina", "Smith", "MN"),
+            # eFD carries a middle initial the official primary omits.
+            ("McCormick, David H. (Senator)", "David H.", "McCormick", "PA"),
+            ("Collins, Susan M. (Senator)", "Susan M.", "Collins", "ME"),
+            ("Curtis, John R. (Senator)", "John R.", "Curtis", "UT"),
+            # Two-word given names match the official first-name field.
+            ("Capito, Shelley Moore (Senator)", "Shelley Moore", "Capito", "WV"),
+        ],
+    )
+    def test_resolves_observed_live_listing_names(self, office, first, last, expected):
+        state = _resolve_state(last, first, _sample_senators(), office=office)
+        assert state == expected
+
+    def test_resolves_office_with_exact_name_to_display_form(self):
+        senators = _sample_senators()
+        first, last = _office_name_parts(
+            "McConnell, A. Mitchell Jr. (Senator)", "A. Mitchell Jr.", "McConnell"
+        )
+        assert first == "A. Mitchell Jr."
+        assert last == "McConnell"
+        assert _resolve_state(last, first, senators, office="McConnell, A. Mitchell Jr. (Senator)") == "KY"
+
+    def test_office_label_senator_falls_back_to_row_cells(self):
+        # Some live rows put only "Senator" in the office cell; identity then
+        # lives entirely in the first/last columns and must still resolve.
+        senators = _sample_senators()
+        first, last = _office_name_parts("Senator", "Angus", "King")
+        assert first == "Angus"
+        assert last == "King"
+        assert _resolve_state(last, first, senators, office="Senator") == "ME"
+
+    def test_fetch_index_resolves_mcconnell_end_to_end(self):
+        import json
+
+        rows = [[
+            "A. Mitchell Jr.",
+            "McConnell",
+            "McConnell, A. Mitchell Jr. (Senator)",
+            f'<a href="/search/view/ptr/{ELECTRONIC_DETAIL_ID}/" target="_blank">'
+            "Periodic Transaction Report for 03/12/2026</a>",
+            "03/12/2026",
+        ]]
+        payload = json.dumps(
+            {"draw": 1, "recordsTotal": 1, "recordsFiltered": 1, "data": rows}
+        ).encode()
+        transport = _MemoryTransport()
+        transport.listing_pages = [payload, _load_fixture("listing_empty.json")]
+        source = SenateEfdSource(transport=transport)
+        filings = source.fetch_index(year=2026)
+        assert len(filings) == 1
+        assert filings[0].last == "McConnell"
+        assert filings[0].state_district == "KY00"
+
+    def test_initial_only_given_name_does_not_guess(self):
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "McConnell", "A.", _sample_senators(),
+                office="McConnell, A. (Senator)",
+            )
+
+    def test_unrelated_given_name_does_not_over_match(self):
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "McConnell", "C. Addison", _sample_senators(),
+                office="McConnell, C. Addison (Senator)",
+            )
+
+    def test_unknown_senator_raises(self):
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Fakename", "Some", _sample_senators(),
+                office="Fakename, Some (Senator)",
+            )
+
+    def test_ambiguous_prefix_within_same_last_name_raises(self):
+        # A surname group holding both a diminutive relation form and the full
+        # form: eFD "Timothy" matches the "tim" entry via the enumerated
+        # given-name relation and the "timothy" entry exactly -> real
+        # ambiguity, must not guess.
+        officials = {("scott", "tim"): "XX", ("scott", "timothy"): "YY"}
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Scott", "Timothy", officials,
+                office="Scott, Timothy (Senator)",
+            )
+
+    def test_diminutive_and_full_name_collision_raises(self):
+        # One surname group holding both the diminutive and its full form:
+        # eFD "James" could be either, so resolution must refuse to guess.
+        officials = {("scott", "james"): "XX", ("scott", "jim"): "YY"}
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Scott", "James", officials,
+                office="Scott, James (Senator)",
+            )
+
+    @pytest.mark.parametrize(
+        ("efd_given", "official_first"),
+        [
+            # Standard diminutive relations from the live listing captures.
+            ("Mitchell", "Mitch"),          # McConnell, KY
+            ("James", "Jim"),               # Banks, IN
+            ("Timothy", "Tim"),             # Scott/Kaine/Sheehy
+        ],
+    )
+    def test_supported_diminutive_relations_match(self, efd_given, official_first):
+        assert _given_names_agree(efd_given, official_first)
+
+    @pytest.mark.parametrize(
+        ("efd_given", "official_first"),
+        [
+            # Bare prefix overlap is NOT identity evidence. "Dana" must not
+            # resolve to an official primary "Dan" merely by sharing letters.
+            ("Dana", "Dan"),
+            ("Christina", "Chris"),
+            ("Johnathan", "John"),
+            ("Benedict", "Ben"),
+            ("Marina", "Marie"),
+            ("Daniela", "Dan"),
+        ],
+    )
+    def test_arbitrary_prefix_is_not_identity(self, efd_given, official_first):
+        assert not _given_names_agree(efd_given, official_first)
+
+    def test_empty_primary_given_name_never_matches(self):
+        for official_first in ("", "   ", "jr."):
+            assert not _given_names_agree("Angus", official_first)
+
+    @pytest.mark.parametrize(
+        ("efd_given", "official_first"),
+        [
+            ("Mitch", "Mitch"),
+            ("Angus", "Angus"),
+            ("Alan", "Alan"),
+            ("James E.", "James"),
+        ],
+    )
+    def test_exact_given_name_tokens_match(self, efd_given, official_first):
+        assert _given_names_agree(efd_given, official_first)
+
+    def test_prefix_only_candidate_is_not_a_match_in_last_name_group(self):
+        # A same-last-name group containing only an official primary "dan":
+        # eFD "Dana" must fail closed (no fuzzy prefix attribution).
+        officials = {("sullivan", "dan"): "AK"}
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Sullivan", "Dana", officials,
+                office="Sullivan, Dana (Senator)",
+            )
+
+    def test_zero_same_last_name_candidates_raise(self):
+        officials = {("sullivan", "dan"): "AK"}
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Washington", "George", officials,
+                office="Washington, George (Senator)",
+            )
+
+    def test_multiple_candidates_same_last_name_raise(self):
+        officials = {
+            ("scott", "rick"): "FL",
+            ("scott", "tim"): "SC",
+            ("scott", "timothy"): "ZZ",
+        }
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Scott", "Timothy", officials,
+                office="Scott, Timothy (Senator)",
+            )
+
+    def test_unique_candidate_resolves_to_state(self):
+        officials = {
+            ("banks", "jim"): "IN",
+            ("scott", "rick"): "FL",
+        }
+        assert _resolve_state(
+            "Banks", "James", officials,
+            office="Banks, James (Senator)",
+        ) == "IN"
 
 
 class TestDefaultTransport:

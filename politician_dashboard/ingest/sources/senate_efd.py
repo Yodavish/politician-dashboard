@@ -79,6 +79,67 @@ _AGREEMENT_CHECKBOX_NAME = "prohibition_agreement"
 _AGREEMENT_CHECKBOX_VALUE = "1"
 _CSRF_FIELD_NAME = "csrfmiddlewaretoken"
 
+# Generational suffixes that name the family line, not the person; they are
+# dropped on both the eFD display side and the official listing side before
+# state resolution so "McConnell, A. Mitchell Jr." and the official
+# "Mitch McConnell" entry can be compared on their given names alone.
+_SUFFIX_TOKENS = frozenset(
+    {"jr", "sr", "junior", "senior", "ii", "iii", "iv", "v"}
+)
+
+# Given-name relations that are NOT simple truncations of the formal name and
+# therefore cannot be derived by the token-prefix rule alone. The official
+# listing publishes many senators' preferred diminutives (Jim Banks, Mitch
+# McConnell, Chuck Grassley, Mike Crapo ...) while the eFD portal displays the
+# fuller form the filer registered (James E., A. Mitchell ...). This is a
+# general map of standard English given-name relations keyed by the formal
+# token to the possible official primary tokens. Entries are generic
+# nicknames/truncations -- never senator-specific -- and bounded: matching is
+# deliberately NOT a string-prefix test, so e.g. an official primary ``dan``
+# cannot match an eFD display ``Dana`` merely because the strings share a
+# prefix. A map entry only ever contributes a candidate together with an
+# exact last-name anchor and an ambiguity check (see :func:`_resolve_state`),
+# so an entry can never attribute a filing to a senator outside the same
+# last-name group.
+_DIMINUTIVE_FORMS: dict[str, frozenset[str]] = {
+    "james": frozenset({"jim"}),
+    "william": frozenset({"bill", "billy", "will"}),
+    "michael": frozenset({"mike"}),
+    "robert": frozenset({"bob", "rob", "bobby", "robby"}),
+    "charles": frozenset({"chuck", "charlie"}),
+    "bernard": frozenset({"bernie"}),
+    "richard": frozenset({"dick", "rich", "rick", "ricky"}),
+    "andrew": frozenset({"andy", "drew"}),
+    "stephen": frozenset({"steve", "steven"}),
+    "steven": frozenset({"steve"}),
+    "geoffrey": frozenset({"jeff"}),
+    "jeffrey": frozenset({"jeff"}),
+    "joseph": frozenset({"joe", "joey"}),
+    "gerald": frozenset({"jerry"}),
+    "thomas": frozenset({"tom", "thom", "tommy"}),
+    "john": frozenset({"jack", "johnny"}),
+    "jonathan": frozenset({"jon"}),
+    "mitchell": frozenset({"mitch"}),
+    "timothy": frozenset({"tim", "timmy"}),
+    "christopher": frozenset({"chris"}),
+    "joshua": frozenset({"josh"}),
+    "daniel": frozenset({"dan", "danny"}),
+    "ronald": frozenset({"ron", "ronnie"}),
+    "peter": frozenset({"pete"}),
+    "theodore": frozenset({"ted"}),
+    "alexander": frozenset({"alex", "sandy"}),
+    "samuel": frozenset({"sam", "sammy"}),
+    "edward": frozenset({"ed", "eddie", "ted"}),
+    "margaret": frozenset({"peg", "peggy", "maggie"}),
+    "elizabeth": frozenset({"beth", "betty", "liz", "lizzie"}),
+    "matthew": frozenset({"mat", "matt"}),
+    "anthony": frozenset({"tony"}),
+    "donald": frozenset({"don", "donnie"}),
+    "david": frozenset({"dave"}),
+    "randall": frozenset({"rand"}),
+    "deborah": frozenset({"deb"}),
+}
+
 _PTR_REPORT_LABEL = re.compile(
     r"Periodic Transaction Report for (?P<date>\d{2}/\d{2}/\d{4})"
 )
@@ -443,6 +504,58 @@ def _normalize_name(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().lower()).strip()
 
 
+def _given_name_tokens(value: str) -> set[str]:
+    """Significant given-name tokens of a name.
+
+    Tokens are lowercased, stripped of punctuation, and generational suffixes
+    (see :data:`_SUFFIX_TOKENS`) are removed so both the eFD display name and
+    the official first-name field are reduced to the same vocabulary. Middle
+    initials and middle names are kept: they carry distinguishing evidence
+    and are harmless to the primary-given-name comparison below.
+    """
+    tokens: set[str] = set()
+    for token in value.strip().lower().split():
+        token = token.strip(".,'\u2019")
+        if not token or token in _SUFFIX_TOKENS:
+            continue
+        tokens.add(token)
+    return tokens
+
+
+def _primary_given_token(official_first: str) -> str:
+    """First (given) token of an official first-name field."""
+    token = _normalize_name(official_first).split(" ", 1)[0]
+    return token.strip(".,'\u2019")
+
+
+def _given_names_agree(efd_given: str, official_first: str) -> bool:
+    """Whether an eFD display given name matches an official first-name field.
+
+    Matching is deliberately bounded. The official senator's *primary* given
+    name token (from ``official_first``) matches an eFD given-name token only
+    when it (a) equals it exactly, or (b) is a known standard given-name
+    relation of it enumerated in :data:`_DIMINUTIVE_FORMS` (e.g. official
+    ``mitch`` for eFD ``mitchell``, official ``jim`` for eFD ``james``). No
+    generic string-prefix test is applied, so e.g. an official ``dan`` cannot
+    match an eFD ``Dana``, ``Daniela``, or ``Danielle`` merely by sharing the
+    ``dan`` prefix. Middle names and initials may be present or absent on
+    either side; an official field that yields no primary token can never
+    match.
+    """
+    efd_tokens = _given_name_tokens(efd_given)
+    if not efd_tokens:
+        return False
+    primary = _primary_given_token(official_first)
+    if not primary:
+        return False
+    for token in efd_tokens:
+        if token == primary:
+            return True
+        if primary in _DIMINUTIVE_FORMS.get(token, ()):
+            return True
+    return False
+
+
 class SenateEfdSource(DisclosureSource):
     """Adapter for the Senate eFD Search PTR listing.
 
@@ -667,14 +780,39 @@ def _resolve_state(
 ) -> str:
     """Resolve a senator's state from the official senators listing.
 
-    Matching is on normalized ``(last, first)``. Raises
-    :class:`SenateStateResolveError` when the senator is not present or the
-    name is ambiguous (multiple senators share the name pair).
+    Matching is anchored by an *exact* match on the normalized last name; the
+    given name must then agree using :func:`_given_names_agree` (exact token,
+    leading-truncation nickname, or a standard English diminutive). This is
+    how the eFD display forms reconcile with the official listing:
+    ``"McConnell, A. Mitchell Jr."`` -> primary ``mitch`` inside ``mitchell``,
+    ``"Banks, James E."`` -> standard diminutive ``jim`` for ``james``, and
+    multi-word/initialed forms such as ``"Capito, Shelley Moore"`` and
+    ``"Curtis, John R."`` match the official first-name field directly.
+
+    Safety invariant (never guessing): the last-name anchor keeps comparison
+    inside one surname group, and :func:`_given_names_agree` is a *primary
+    given-name* correspondence, so middle/initial/suffix noise cannot
+    attribute a filing to the wrong senator. If zero senators in that group
+    satisfy the rule, or more than one does (a real ambiguity), resolution
+    fails with :class:`SenateStateResolveError` rather than guessing.
     """
-    key = (_normalize_name(last), _normalize_name(first))
-    if key not in senators:
+    last_key = _normalize_name(last)
+    candidates: list[tuple[str, str]] = []
+    for (official_last, official_first), state in senators.items():
+        if official_last != last_key:
+            continue
+        if _given_names_agree(first, official_first):
+            candidates.append((official_first, state))
+
+    if len(candidates) == 1:
+        return candidates[0][1]
+    if not candidates:
         raise SenateStateResolveError(
             f"Unresolved senator: '{office}' ({first} {last}); "
             "not found in the official senators listing"
         )
-    return senators[key]
+    raise SenateStateResolveError(
+        f"Ambiguous senator: '{office}' ({first} {last}) matches "
+        "multiple entries in the official senators listing "
+        f"({', '.join(name for name, _ in candidates)})"
+    )
