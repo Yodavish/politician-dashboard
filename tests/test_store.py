@@ -109,7 +109,7 @@ class TestStoreFiling:
         txns = _txn_rows(temp_database_url, filing_id)
         assert len(txns) == 2
 
-        seq0, sid0, owner0, asset0, ticker0, ttype0, tdate0, ndate0, amin0, amax0, araw0 = txns[0]
+        seq0, sid0, owner0, asset0, ticker0, ttype0, tdate0, ndate0, amin0, amax0, araw0, flags0 = txns[0]
         assert seq0 == 0
         assert sid0 is None
         assert owner0 == "SP"
@@ -121,12 +121,15 @@ class TestStoreFiling:
         assert amin0 == 1001
         assert amax0 == 15000
         assert araw0 == "$1,001 - $15,000"
+        # Normal dates (txn before notification before filing) carry no flags
+        assert flags0 == []
 
         # Preserve "(partial)" suffix and source_id on the second transaction
-        seq1, sid1, _owner1, _asset1, _ticker1, ttype1, *_ = txns[1]
+        seq1, sid1, _owner1, _asset1, _ticker1, ttype1, _td1, _nd1, _amin1, _amax1, _araw1, flags1 = txns[1]
         assert seq1 == 1
         assert sid1 == "2000086356"
         assert ttype1 == "S (partial)"
+        assert flags1 == []
 
     def test_persists_quality_flags(self, temp_database_url: str):
         tx = replace(
