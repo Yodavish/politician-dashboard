@@ -1,0 +1,4803 @@
+{
+  "source": "unitedstates/congress-legislators (legislators-current.json + legislators-historical.json)",
+  "source_urls": [
+    "https://unitedstates.github.io/congress-legislators/legislators-current.json",
+    "https://unitedstates.github.io/congress-legislators/legislators-historical.json"
+  ],
+  "provenance_note": "This snapshot is derived from the community-maintained congress-legislators dataset, which is NOT an official publication of the U.S. Senate or the Library of Congress. Service-boundary members listed under 'boundary_members' were cross-checked against official bioguide.congress.gov JSON on the generation date through browser-class access (scripted gov requests are blocked); those verified facts are provenance only and are never consulted by the resolver, which matches identities and Senate service intervals and otherwise fails closed.",
+  "coverage_start": "2000-01-01",
+  "generated_at": "2026-09-22",
+  "boundary_members": {
+    "M001190": {
+      "last_name": "Mullin",
+      "state": "OK",
+      "verified": "Resigned 2026-03-23 (bioguide departureReason 'Resigned'); class 2 successor Armstrong effective 2026-03-24."
+    },
+    "A000383": {
+      "last_name": "Armstrong",
+      "state": "OK",
+      "verified": "Senate service began 2026-03-24; currently serving (bioguide lists no endDate)."
+    },
+    "G000359": {
+      "last_name": "Graham",
+      "state": "SC",
+      "verified": "Died 2026-07-11 (bioguide deathDate); bioguide's final job position has no structured endDate."
+    },
+    "G000608": {
+      "last_name": "Graham",
+      "state": "SC",
+      "verified": "Appointed, service began 2026-07-14. Note: source 'name.last' artifact 'Graham Nordone' corrected from official_full 'Darline Graham'."
+    }
+  },
+  "members": [
+    {
+      "bioguide_id": "A000355",
+      "last_name": "Abraham",
+      "first_name": "Spencer",
+      "state": "MI",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "A000069",
+      "last_name": "Akaka",
+      "first_name": "Daniel",
+      "state": "HI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "A000360",
+      "last_name": "Alexander",
+      "first_name": "Lamar",
+      "state": "TN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "A000109",
+      "last_name": "Allard",
+      "first_name": "Wayne",
+      "state": "CO",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "A000121",
+      "last_name": "Allen",
+      "first_name": "George",
+      "state": "VA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "A000382",
+      "last_name": "Alsobrooks",
+      "first_name": "Angela",
+      "state": "MD",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "A000383",
+      "last_name": "Armstrong",
+      "first_name": "Alan",
+      "state": "OK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2026-03-24",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "A000356",
+      "last_name": "Ashcroft",
+      "first_name": "John",
+      "state": "MO",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "A000368",
+      "last_name": "Ayotte",
+      "first_name": "Kelly",
+      "state": "NH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001230",
+      "last_name": "Baldwin",
+      "first_name": "Tammy",
+      "state": "WI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001299",
+      "last_name": "Banks",
+      "first_name": "Jim",
+      "state": "IN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001237",
+      "last_name": "Barkley",
+      "first_name": "Dean",
+      "state": "MN",
+      "party": "Independent",
+      "terms": [
+        {
+          "start": "2002-11-05",
+          "end": "2003-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001261",
+      "last_name": "Barrasso",
+      "first_name": "John",
+      "state": "WY",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2007-06-25",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000243",
+      "last_name": "Baucus",
+      "first_name": "Max",
+      "state": "MT",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2014-02-06"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001233",
+      "last_name": "Bayh",
+      "first_name": "Evan",
+      "state": "IN",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001265",
+      "last_name": "Begich",
+      "first_name": "Mark",
+      "state": "AK",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001267",
+      "last_name": "Bennet",
+      "first_name": "Michael",
+      "state": "CO",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-22",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000382",
+      "last_name": "Bennett",
+      "first_name": "Robert",
+      "state": "UT",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000444",
+      "last_name": "Biden",
+      "first_name": "Joseph",
+      "state": "DE",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2009-01-15"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000468",
+      "last_name": "Bingaman",
+      "first_name": "Jeff",
+      "state": "NM",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001243",
+      "last_name": "Blackburn",
+      "first_name": "Marsha",
+      "state": "TN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001277",
+      "last_name": "Blumenthal",
+      "first_name": "Richard",
+      "state": "CT",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000575",
+      "last_name": "Blunt",
+      "first_name": "Roy",
+      "state": "MO",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001303",
+      "last_name": "Blunt Rochester",
+      "first_name": "Lisa",
+      "state": "DE",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000611",
+      "last_name": "Bond",
+      "first_name": "Christopher",
+      "state": "MO",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001288",
+      "last_name": "Booker",
+      "first_name": "Cory",
+      "state": "NJ",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-10-31",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001236",
+      "last_name": "Boozman",
+      "first_name": "John",
+      "state": "AR",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000711",
+      "last_name": "Boxer",
+      "first_name": "Barbara",
+      "state": "CA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001310",
+      "last_name": "Braun",
+      "first_name": "Mike",
+      "state": "IN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000780",
+      "last_name": "Breaux",
+      "first_name": "John",
+      "state": "LA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001319",
+      "last_name": "Britt",
+      "first_name": "Katie",
+      "state": "AL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001268",
+      "last_name": "Brown",
+      "first_name": "Scott",
+      "state": "MA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2010-02-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000944",
+      "last_name": "Brown",
+      "first_name": "Sherrod",
+      "state": "OH",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000953",
+      "last_name": "Brownback",
+      "first_name": "Samuel",
+      "state": "KS",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B000993",
+      "last_name": "Bryan",
+      "first_name": "Richard",
+      "state": "NV",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001305",
+      "last_name": "Budd",
+      "first_name": "Ted",
+      "state": "NC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001066",
+      "last_name": "Bunning",
+      "first_name": "Jim",
+      "state": "KY",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001126",
+      "last_name": "Burns",
+      "first_name": "Conrad",
+      "state": "MT",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001135",
+      "last_name": "Burr",
+      "first_name": "Richard",
+      "state": "NC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001266",
+      "last_name": "Burris",
+      "first_name": "Roland",
+      "state": "IL",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-15",
+          "end": "2010-11-29"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001320",
+      "last_name": "Butler",
+      "first_name": "Laphonza",
+      "state": "CA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2023-10-03",
+          "end": "2024-12-08"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001210",
+      "last_name": "Byrd",
+      "first_name": "Robert",
+      "state": "WV",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2010-06-28"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000077",
+      "last_name": "Campbell",
+      "first_name": "Ben",
+      "state": "CO",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000127",
+      "last_name": "Cantwell",
+      "first_name": "Maria",
+      "state": "WA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001047",
+      "last_name": "Capito",
+      "first_name": "Shelley",
+      "state": "WV",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000141",
+      "last_name": "Cardin",
+      "first_name": "Benjamin",
+      "state": "MD",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001043",
+      "last_name": "Carnahan",
+      "first_name": "Jean",
+      "state": "MO",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2002-11-23"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000174",
+      "last_name": "Carper",
+      "first_name": "Thomas",
+      "state": "DE",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001075",
+      "last_name": "Cassidy",
+      "first_name": "Bill",
+      "state": "LA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001040",
+      "last_name": "Chafee",
+      "first_name": "Lincoln",
+      "state": "RI",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-11-02",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000286",
+      "last_name": "Chambliss",
+      "first_name": "Saxby",
+      "state": "GA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001100",
+      "last_name": "Chiesa",
+      "first_name": "Jeffrey",
+      "state": "NJ",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2013-06-10",
+          "end": "2013-10-31"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001034",
+      "last_name": "Cleland",
+      "first_name": "J.",
+      "state": "GA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001041",
+      "last_name": "Clinton",
+      "first_name": "Hillary",
+      "state": "NY",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2009-01-21"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000542",
+      "last_name": "Coats",
+      "first_name": "Daniel",
+      "state": "IN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000560",
+      "last_name": "Coburn",
+      "first_name": "Thomas",
+      "state": "OK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000567",
+      "last_name": "Cochran",
+      "first_name": "Thad",
+      "state": "MS",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2018-04-01"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001057",
+      "last_name": "Coleman",
+      "first_name": "Norm",
+      "state": "MN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001035",
+      "last_name": "Collins",
+      "first_name": "Susan",
+      "state": "ME",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000705",
+      "last_name": "Conrad",
+      "first_name": "Kent",
+      "state": "ND",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001088",
+      "last_name": "Coons",
+      "first_name": "Christopher",
+      "state": "DE",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2010-11-15",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001071",
+      "last_name": "Corker",
+      "first_name": "Bob",
+      "state": "TN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001056",
+      "last_name": "Cornyn",
+      "first_name": "John",
+      "state": "TX",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2002-11-30",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001113",
+      "last_name": "Cortez Masto",
+      "first_name": "Catherine",
+      "state": "NV",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001042",
+      "last_name": "Corzine",
+      "first_name": "Jon",
+      "state": "NJ",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2006-01-17"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001095",
+      "last_name": "Cotton",
+      "first_name": "Tom",
+      "state": "AR",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000813",
+      "last_name": "Coverdell",
+      "first_name": "Paul",
+      "state": "GA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2000-07-18"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001099",
+      "last_name": "Cowan",
+      "first_name": "William",
+      "state": "MA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-02-06",
+          "end": "2013-07-16"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000858",
+      "last_name": "Craig",
+      "first_name": "Larry",
+      "state": "ID",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001096",
+      "last_name": "Cramer",
+      "first_name": "Kevin",
+      "state": "ND",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C000880",
+      "last_name": "Crapo",
+      "first_name": "Michael",
+      "state": "ID",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001098",
+      "last_name": "Cruz",
+      "first_name": "Ted",
+      "state": "TX",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001114",
+      "last_name": "Curtis",
+      "first_name": "John",
+      "state": "UT",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000618",
+      "last_name": "Daines",
+      "first_name": "Steve",
+      "state": "MT",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000064",
+      "last_name": "Daschle",
+      "first_name": "Thomas",
+      "state": "SD",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000596",
+      "last_name": "Dayton",
+      "first_name": "Mark",
+      "state": "MN",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000595",
+      "last_name": "DeMint",
+      "first_name": "Jim",
+      "state": "SC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2013-01-01"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000294",
+      "last_name": "DeWine",
+      "first_name": "Michael",
+      "state": "OH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000388",
+      "last_name": "Dodd",
+      "first_name": "Christopher",
+      "state": "CT",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000601",
+      "last_name": "Dole",
+      "first_name": "Elizabeth",
+      "state": "NC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000407",
+      "last_name": "Domenici",
+      "first_name": "Pete",
+      "state": "NM",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000607",
+      "last_name": "Donnelly",
+      "first_name": "Joe",
+      "state": "IN",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000432",
+      "last_name": "Dorgan",
+      "first_name": "Byron",
+      "state": "ND",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000622",
+      "last_name": "Duckworth",
+      "first_name": "Tammy",
+      "state": "IL",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "D000563",
+      "last_name": "Durbin",
+      "first_name": "Richard",
+      "state": "IL",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "E000286",
+      "last_name": "Edwards",
+      "first_name": "John",
+      "state": "NC",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "E000194",
+      "last_name": "Ensign",
+      "first_name": "John",
+      "state": "NV",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2011-05-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "E000285",
+      "last_name": "Enzi",
+      "first_name": "Michael",
+      "state": "WY",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "E000295",
+      "last_name": "Ernst",
+      "first_name": "Joni",
+      "state": "IA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "F000061",
+      "last_name": "Feingold",
+      "first_name": "Russell",
+      "state": "WI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "F000062",
+      "last_name": "Feinstein",
+      "first_name": "Dianne",
+      "state": "CA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2023-09-28"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "F000479",
+      "last_name": "Fetterman",
+      "first_name": "John",
+      "state": "PA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "F000463",
+      "last_name": "Fischer",
+      "first_name": "Deb",
+      "state": "NE",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "F000442",
+      "last_name": "Fitzgerald",
+      "first_name": "Peter",
+      "state": "IL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "F000444",
+      "last_name": "Flake",
+      "first_name": "Jeff",
+      "state": "AZ",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "F000457",
+      "last_name": "Franken",
+      "first_name": "Alan",
+      "state": "MN",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-07-07",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2018-01-02"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "F000439",
+      "last_name": "Frist",
+      "first_name": "William",
+      "state": "TN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000574",
+      "last_name": "Gallego",
+      "first_name": "Ruben",
+      "state": "AZ",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000562",
+      "last_name": "Gardner",
+      "first_name": "Cory",
+      "state": "CO",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000555",
+      "last_name": "Gillibrand",
+      "first_name": "Kirsten",
+      "state": "NY",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-27",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000561",
+      "last_name": "Goodwin",
+      "first_name": "Carte",
+      "state": "WV",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2010-07-20",
+          "end": "2010-11-14"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000333",
+      "last_name": "Gorton",
+      "first_name": "T.",
+      "state": "WA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000352",
+      "last_name": "Graham",
+      "first_name": "Bob",
+      "state": "FL",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000608",
+      "last_name": "Graham",
+      "first_name": "Darline",
+      "state": "SC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2026-07-14",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000359",
+      "last_name": "Graham",
+      "first_name": "Lindsey",
+      "state": "SC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2026-07-11"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000365",
+      "last_name": "Gramm",
+      "first_name": "Phil",
+      "state": "TX",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2002-11-29"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000367",
+      "last_name": "Grams",
+      "first_name": "Rod",
+      "state": "MN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000386",
+      "last_name": "Grassley",
+      "first_name": "Charles",
+      "state": "IA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000445",
+      "last_name": "Gregg",
+      "first_name": "Judd",
+      "state": "NH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001049",
+      "last_name": "Hagan",
+      "first_name": "Kay",
+      "state": "NC",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001028",
+      "last_name": "Hagel",
+      "first_name": "Charles",
+      "state": "NE",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H000601",
+      "last_name": "Hagerty",
+      "first_name": "Bill",
+      "state": "TN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H000206",
+      "last_name": "Harkin",
+      "first_name": "Thomas",
+      "state": "IA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001075",
+      "last_name": "Harris",
+      "first_name": "Kamala",
+      "state": "CA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2017-01-03",
+          "end": "2021-01-18"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001076",
+      "last_name": "Hassan",
+      "first_name": "Margaret",
+      "state": "NH",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H000338",
+      "last_name": "Hatch",
+      "first_name": "Orrin",
+      "state": "UT",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001089",
+      "last_name": "Hawley",
+      "first_name": "Joshua",
+      "state": "MO",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001046",
+      "last_name": "Heinrich",
+      "first_name": "Martin",
+      "state": "NM",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001069",
+      "last_name": "Heitkamp",
+      "first_name": "Heidi",
+      "state": "ND",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001041",
+      "last_name": "Heller",
+      "first_name": "Dean",
+      "state": "NV",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-05-09",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H000463",
+      "last_name": "Helms",
+      "first_name": "Jesse",
+      "state": "NC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001097",
+      "last_name": "Helmy",
+      "first_name": "George",
+      "state": "NJ",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2024-09-09",
+          "end": "2024-12-08"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H000273",
+      "last_name": "Hickenlooper",
+      "first_name": "John",
+      "state": "CO",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001042",
+      "last_name": "Hirono",
+      "first_name": "Mazie",
+      "state": "HI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001061",
+      "last_name": "Hoeven",
+      "first_name": "John",
+      "state": "ND",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H000725",
+      "last_name": "Hollings",
+      "first_name": "Ernest",
+      "state": "SC",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001104",
+      "last_name": "Husted",
+      "first_name": "Jon",
+      "state": "OH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-21",
+          "end": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001015",
+      "last_name": "Hutchinson",
+      "first_name": "Tim",
+      "state": "AR",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001016",
+      "last_name": "Hutchison",
+      "first_name": "Kay",
+      "state": "TX",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001079",
+      "last_name": "Hyde-Smith",
+      "first_name": "Cindy",
+      "state": "MS",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2018-04-09",
+          "end": "2018-11-27"
+        },
+        {
+          "start": "2018-11-28",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001183",
+      "last_name": "III",
+      "first_name": "Joe",
+      "state": "WV",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2010-11-15",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "I000024",
+      "last_name": "Inhofe",
+      "first_name": "James",
+      "state": "OK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2023-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "I000025",
+      "last_name": "Inouye",
+      "first_name": "Daniel",
+      "state": "HI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2012-12-17"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "I000055",
+      "last_name": "Isakson",
+      "first_name": "John",
+      "state": "GA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2019-12-31"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000361",
+      "last_name": "IV",
+      "first_name": "John",
+      "state": "WV",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "J000072",
+      "last_name": "Jeffords",
+      "first_name": "James",
+      "state": "VT",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "J000291",
+      "last_name": "Johanns",
+      "first_name": "Mike",
+      "state": "NE",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "J000293",
+      "last_name": "Johnson",
+      "first_name": "Ron",
+      "state": "WI",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "J000177",
+      "last_name": "Johnson",
+      "first_name": "Tim",
+      "state": "SD",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "J000300",
+      "last_name": "Jones",
+      "first_name": "Doug",
+      "state": "AL",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2018-01-03",
+          "end": "2021-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000383",
+      "last_name": "Jr.",
+      "first_name": "Angus",
+      "state": "ME",
+      "party": "Independent",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001070",
+      "last_name": "Jr.",
+      "first_name": "Robert",
+      "state": "PA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "J000312",
+      "last_name": "Justice",
+      "first_name": "Jim",
+      "state": "WV",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-14",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000384",
+      "last_name": "Kaine",
+      "first_name": "Timothy",
+      "state": "VA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000373",
+      "last_name": "Kaufman",
+      "first_name": "Edward",
+      "state": "DE",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-16",
+          "end": "2010-11-15"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000377",
+      "last_name": "Kelly",
+      "first_name": "Mark",
+      "state": "AZ",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2020-12-02",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000105",
+      "last_name": "Kennedy",
+      "first_name": "Edward",
+      "state": "MA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2009-08-25"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000393",
+      "last_name": "Kennedy",
+      "first_name": "John",
+      "state": "LA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000146",
+      "last_name": "Kerrey",
+      "first_name": "J.",
+      "state": "NE",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000148",
+      "last_name": "Kerry",
+      "first_name": "John",
+      "state": "MA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2013-02-01"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000394",
+      "last_name": "Kim",
+      "first_name": "Andy",
+      "state": "NJ",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2024-12-09",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000360",
+      "last_name": "Kirk",
+      "first_name": "Mark",
+      "state": "IL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2010-11-29",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000374",
+      "last_name": "Kirk",
+      "first_name": "Paul",
+      "state": "MA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-09-25",
+          "end": "2010-02-04"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000367",
+      "last_name": "Klobuchar",
+      "first_name": "Amy",
+      "state": "MN",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000305",
+      "last_name": "Kohl",
+      "first_name": "Herbert",
+      "state": "WI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000352",
+      "last_name": "Kyl",
+      "first_name": "Jon",
+      "state": "AZ",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2018-09-05",
+          "end": "2018-12-31"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000550",
+      "last_name": "Landrieu",
+      "first_name": "Mary",
+      "state": "LA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000575",
+      "last_name": "Lankford",
+      "first_name": "James",
+      "state": "OK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000123",
+      "last_name": "Lautenberg",
+      "first_name": "Frank",
+      "state": "NJ",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2013-06-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000174",
+      "last_name": "Leahy",
+      "first_name": "Patrick",
+      "state": "VT",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000577",
+      "last_name": "Lee",
+      "first_name": "Mike",
+      "state": "UT",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000572",
+      "last_name": "LeMieux",
+      "first_name": "George",
+      "state": "FL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2009-09-10",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000261",
+      "last_name": "Levin",
+      "first_name": "Carl",
+      "state": "MI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000304",
+      "last_name": "Lieberman",
+      "first_name": "Joseph",
+      "state": "CT",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000035",
+      "last_name": "Lincoln",
+      "first_name": "Blanche",
+      "state": "AR",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000594",
+      "last_name": "Loeffler",
+      "first_name": "Kelly",
+      "state": "GA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2020-01-06",
+          "end": "2021-01-20"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000447",
+      "last_name": "Lott",
+      "first_name": "Trent",
+      "state": "MS",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2007-12-18"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000504",
+      "last_name": "Lugar",
+      "first_name": "Richard",
+      "state": "IN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000570",
+      "last_name": "Luján",
+      "first_name": "Ben",
+      "state": "NM",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "L000571",
+      "last_name": "Lummis",
+      "first_name": "Cynthia",
+      "state": "WY",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M000019",
+      "last_name": "Mack",
+      "first_name": "Connie",
+      "state": "FL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M000133",
+      "last_name": "Markey",
+      "first_name": "Edward",
+      "state": "MA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-07-16",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001198",
+      "last_name": "Marshall",
+      "first_name": "Roger",
+      "state": "KS",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001162",
+      "last_name": "Martinez",
+      "first_name": "Mel",
+      "state": "FL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2005-01-04",
+          "end": "2009-09-09"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M000303",
+      "last_name": "McCain",
+      "first_name": "John",
+      "state": "AZ",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2018-08-25"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001170",
+      "last_name": "McCaskill",
+      "first_name": "Claire",
+      "state": "MO",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M000355",
+      "last_name": "McConnell",
+      "first_name": "Mitch",
+      "state": "KY",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001243",
+      "last_name": "McCormick",
+      "first_name": "Dave",
+      "state": "PA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001197",
+      "last_name": "McSally",
+      "first_name": "Martha",
+      "state": "AZ",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2019-01-03",
+          "end": "2020-12-02"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M000639",
+      "last_name": "Menendez",
+      "first_name": "Robert",
+      "state": "NJ",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2006-01-18",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2024-08-20"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001176",
+      "last_name": "Merkley",
+      "first_name": "Jeff",
+      "state": "OR",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M000702",
+      "last_name": "Mikulski",
+      "first_name": "Barbara",
+      "state": "MD",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001141",
+      "last_name": "Miller",
+      "first_name": "Zell",
+      "state": "GA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2000-07-24",
+          "end": "2005-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001244",
+      "last_name": "Moody",
+      "first_name": "Ashley",
+      "state": "FL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-21",
+          "end": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M000934",
+      "last_name": "Moran",
+      "first_name": "Jerry",
+      "state": "KS",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001242",
+      "last_name": "Moreno",
+      "first_name": "Bernie",
+      "state": "OH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001054",
+      "last_name": "Moynihan",
+      "first_name": "Daniel",
+      "state": "NY",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001190",
+      "last_name": "Mullin",
+      "first_name": "Markwayne",
+      "state": "OK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2026-03-23"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001085",
+      "last_name": "Murkowski",
+      "first_name": "Frank",
+      "state": "AK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2002-12-19"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001153",
+      "last_name": "Murkowski",
+      "first_name": "Lisa",
+      "state": "AK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001169",
+      "last_name": "Murphy",
+      "first_name": "Christopher",
+      "state": "CT",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001111",
+      "last_name": "Murray",
+      "first_name": "Patty",
+      "state": "WA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "N000180",
+      "last_name": "Nelson",
+      "first_name": "Ben",
+      "state": "NE",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "N000032",
+      "last_name": "Nelson",
+      "first_name": "Bill",
+      "state": "FL",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "N000102",
+      "last_name": "Nickles",
+      "first_name": "Don",
+      "state": "OK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "O000167",
+      "last_name": "Obama",
+      "first_name": "Barack",
+      "state": "IL",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2005-01-04",
+          "end": "2008-11-16"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "O000174",
+      "last_name": "Ossoff",
+      "first_name": "Jon",
+      "state": "GA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2021-01-20",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "P000145",
+      "last_name": "Padilla",
+      "first_name": "Alejandro",
+      "state": "CA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2021-01-20",
+          "end": "2022-12-21"
+        },
+        {
+          "start": "2022-12-22",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "P000603",
+      "last_name": "Paul",
+      "first_name": "Rand",
+      "state": "KY",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "P000612",
+      "last_name": "Perdue",
+      "first_name": "David",
+      "state": "GA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "P000595",
+      "last_name": "Peters",
+      "first_name": "Gary",
+      "state": "MI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "P000449",
+      "last_name": "Portman",
+      "first_name": "Robert",
+      "state": "OH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "P000590",
+      "last_name": "Pryor",
+      "first_name": "Mark",
+      "state": "AR",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000122",
+      "last_name": "Reed",
+      "first_name": "John",
+      "state": "RI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000146",
+      "last_name": "Reid",
+      "first_name": "Harry",
+      "state": "NV",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000618",
+      "last_name": "Ricketts",
+      "first_name": "Pete",
+      "state": "NE",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2023-01-23",
+          "end": "2024-11-05"
+        },
+        {
+          "start": "2024-11-05",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000584",
+      "last_name": "Risch",
+      "first_name": "James",
+      "state": "ID",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000295",
+      "last_name": "Robb",
+      "first_name": "Charles",
+      "state": "VA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000307",
+      "last_name": "Roberts",
+      "first_name": "Pat",
+      "state": "KS",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000615",
+      "last_name": "Romney",
+      "first_name": "Mitt",
+      "state": "UT",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000608",
+      "last_name": "Rosen",
+      "first_name": "Jacky",
+      "state": "NV",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000460",
+      "last_name": "Roth",
+      "first_name": "William",
+      "state": "DE",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000605",
+      "last_name": "Rounds",
+      "first_name": "Mike",
+      "state": "SD",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000595",
+      "last_name": "Rubio",
+      "first_name": "Marco",
+      "state": "FL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2025-01-20"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001163",
+      "last_name": "Salazar",
+      "first_name": "Ken",
+      "state": "CO",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2005-01-04",
+          "end": "2009-01-21"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000033",
+      "last_name": "Sanders",
+      "first_name": "Bernard",
+      "state": "VT",
+      "party": "Independent",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000059",
+      "last_name": "Santorum",
+      "first_name": "Richard",
+      "state": "PA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000064",
+      "last_name": "Sarbanes",
+      "first_name": "Paul",
+      "state": "MD",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001197",
+      "last_name": "Sasse",
+      "first_name": "Benjamin",
+      "state": "NE",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2023-01-08"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001194",
+      "last_name": "Schatz",
+      "first_name": "Brian",
+      "state": "HI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2012-12-27",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001150",
+      "last_name": "Schiff",
+      "first_name": "Adam",
+      "state": "CA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2024-12-09",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001227",
+      "last_name": "Schmitt",
+      "first_name": "Eric",
+      "state": "MO",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000148",
+      "last_name": "Schumer",
+      "first_name": "Charles",
+      "state": "NY",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001217",
+      "last_name": "Scott",
+      "first_name": "Rick",
+      "state": "FL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2019-01-08",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001184",
+      "last_name": "Scott",
+      "first_name": "Tim",
+      "state": "SC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001141",
+      "last_name": "Sessions",
+      "first_name": "Jefferson",
+      "state": "AL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2017-02-08"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001181",
+      "last_name": "Shaheen",
+      "first_name": "Jeanne",
+      "state": "NH",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001232",
+      "last_name": "Sheehy",
+      "first_name": "Tim",
+      "state": "MT",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000320",
+      "last_name": "Shelby",
+      "first_name": "Richard",
+      "state": "AL",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001191",
+      "last_name": "Sinema",
+      "first_name": "Kyrsten",
+      "state": "AZ",
+      "party": "Independent",
+      "terms": [
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001208",
+      "last_name": "Slotkin",
+      "first_name": "Elissa",
+      "state": "MI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001142",
+      "last_name": "Smith",
+      "first_name": "Gordon",
+      "state": "OR",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000606",
+      "last_name": "Smith",
+      "first_name": "Robert",
+      "state": "NH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001203",
+      "last_name": "Smith",
+      "first_name": "Tina",
+      "state": "MN",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2018-01-03",
+          "end": "2018-11-06"
+        },
+        {
+          "start": "2018-11-07",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000663",
+      "last_name": "Snowe",
+      "first_name": "Olympia",
+      "state": "ME",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000709",
+      "last_name": "Specter",
+      "first_name": "Arlen",
+      "state": "PA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000770",
+      "last_name": "Stabenow",
+      "first_name": "Debbie",
+      "state": "MI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S000888",
+      "last_name": "Stevens",
+      "first_name": "Ted",
+      "state": "AK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001202",
+      "last_name": "Strange",
+      "first_name": "Luther",
+      "state": "AL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2017-02-09",
+          "end": "2018-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001198",
+      "last_name": "Sullivan",
+      "first_name": "Dan",
+      "state": "AK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001078",
+      "last_name": "Sununu",
+      "first_name": "John",
+      "state": "NH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000024",
+      "last_name": "Talent",
+      "first_name": "James",
+      "state": "MO",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2002-11-25",
+          "end": "2007-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000464",
+      "last_name": "Tester",
+      "first_name": "Jon",
+      "state": "MT",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000162",
+      "last_name": "Thomas",
+      "first_name": "Craig",
+      "state": "WY",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1995-01-04",
+          "end": "2001-01-03"
+        },
+        {
+          "start": "2001-01-03",
+          "end": "2007-01-03"
+        },
+        {
+          "start": "2007-01-04",
+          "end": "2007-06-04"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000457",
+      "last_name": "Thompson",
+      "first_name": "Fred",
+      "state": "TN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000250",
+      "last_name": "Thune",
+      "first_name": "John",
+      "state": "SD",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000254",
+      "last_name": "Thurmond",
+      "first_name": "J.",
+      "state": "SC",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000476",
+      "last_name": "Tillis",
+      "first_name": "Thom",
+      "state": "NC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000461",
+      "last_name": "Toomey",
+      "first_name": "Patrick",
+      "state": "PA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000317",
+      "last_name": "Torricelli",
+      "first_name": "Robert",
+      "state": "NJ",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "T000278",
+      "last_name": "Tuberville",
+      "first_name": "Tommy",
+      "state": "AL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "U000038",
+      "last_name": "Udall",
+      "first_name": "Mark",
+      "state": "CO",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "U000039",
+      "last_name": "Udall",
+      "first_name": "Tom",
+      "state": "NM",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "V000128",
+      "last_name": "Van Hollen",
+      "first_name": "Chris",
+      "state": "MD",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "V000137",
+      "last_name": "Vance",
+      "first_name": "James David",
+      "state": "OH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2025-01-09"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "V000127",
+      "last_name": "Vitter",
+      "first_name": "David",
+      "state": "LA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "V000126",
+      "last_name": "Voinovich",
+      "first_name": "George",
+      "state": "OH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000818",
+      "last_name": "Walsh",
+      "first_name": "John",
+      "state": "MT",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2014-02-11",
+          "end": "2015-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000154",
+      "last_name": "Warner",
+      "first_name": "John",
+      "state": "VA",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2003-01-03"
+        },
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000805",
+      "last_name": "Warner",
+      "first_name": "Mark",
+      "state": "VA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000790",
+      "last_name": "Warnock",
+      "first_name": "Raphael",
+      "state": "GA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2021-01-20",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000817",
+      "last_name": "Warren",
+      "first_name": "Elizabeth",
+      "state": "MA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000803",
+      "last_name": "Webb",
+      "first_name": "Jim",
+      "state": "VA",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000800",
+      "last_name": "Welch",
+      "first_name": "Peter",
+      "state": "VT",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000288",
+      "last_name": "Wellstone",
+      "first_name": "Paul",
+      "state": "MN",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1997-01-07",
+          "end": "2002-10-25"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000802",
+      "last_name": "Whitehouse",
+      "first_name": "Sheldon",
+      "state": "RI",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000437",
+      "last_name": "Wicker",
+      "first_name": "Roger",
+      "state": "MS",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2007-12-31",
+          "end": "2013-01-03"
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2019-01-03"
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "W000779",
+      "last_name": "Wyden",
+      "first_name": "Ron",
+      "state": "OR",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "1999-01-06",
+          "end": "2005-01-03"
+        },
+        {
+          "start": "2005-01-04",
+          "end": "2011-01-03"
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "Y000064",
+      "last_name": "Young",
+      "first_name": "Todd",
+      "state": "IN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    }
+  ]
+}

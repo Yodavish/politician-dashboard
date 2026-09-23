@@ -19,6 +19,12 @@ venv/
 data/
 *.log
 
+# The Senate membership reference snapshot is a committed source asset (see
+# politician_dashboard/ingest/sources/senate_members_refresh.py), so it is
+# exempted from the data/ ignore above.
+!politician_dashboard/ingest/sources/data/
+!politician_dashboard/ingest/sources/data/senate_members.json
+
 # OS / editor
 .DS_Store
 .idea/

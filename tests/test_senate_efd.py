@@ -11,6 +11,7 @@ Conventions intentionally match ``tests/test_house_clerk.py``.
 
 from __future__ import annotations
 
+import json
 import urllib.parse
 from datetime import date
 from pathlib import Path
@@ -25,17 +26,27 @@ from politician_dashboard.ingest.sources.senate_efd import (
     SenateDetailError,
     SenateEfdSource,
     SenateIndexError,
+    SenateMember,
+    SenateMemberTerm,
     SenateStateResolveError,
     _given_names_agree,
     _office_name_parts,
     _resolve_state,
+    _serves_on,
     classify_senate_doc_id,
     classify_view_link,
+    load_default_senate_members,
     parse_agreement_html,
     parse_listing_json,
     parse_ptr_view_html,
+    parse_senate_members_json,
     parse_senators_xml,
     view_url,
+)
+from politician_dashboard.ingest.sources import senate_members_refresh
+from politician_dashboard.ingest.sources.senate_members_refresh import (
+    build_members_snapshot,
+    diff_snapshots,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "senate"
@@ -57,6 +68,10 @@ def _sample_listing_rows():
 
 def _sample_senators() -> dict[tuple[str, str], str]:
     return parse_senators_xml(_load_fixture("senators_cfm.xml"))
+
+
+def _sample_members() -> list[SenateMember]:
+    return parse_senate_members_json(_load_fixture("senate_members.json"))
 
 
 def _parse_body(body: bytes) -> dict[str, str]:
@@ -611,6 +626,375 @@ class TestSenateStateResolution:
                 office="Graham, Lindsey (Senator)",
             )
 
+    def test_departed_senator_resolves_via_reference_snapshot(self):
+        # Markwayne Mullin is absent from the current officials fixture (he
+        # resigned 2026-03-23). The reference snapshot knows his Senate
+        # service, so a 2024 filing resolves to OK.
+        state = _resolve_state(
+            "Mullin", "Markwayne", _sample_senators(),
+            office="Mullin, Markwayne (Senator)",
+            anchor_date=date(2024, 6, 15),
+            members=_sample_members(),
+        )
+        assert state == "OK"
+
+    def test_snapshot_service_interval_is_inclusive_of_last_day(self):
+        # Mullin's term ends on (and includes) 2026-03-23, matching the
+        # bioguide endDate of his resignation.
+        assert _resolve_state(
+            "Mullin", "Markwayne", {}, office="Mullin, Markwayne (Senator)",
+            anchor_date=date(2026, 3, 23), members=_sample_members(),
+        ) == "OK"
+
+    def test_post_resignation_filing_fails_closed(self):
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Mullin", "Markwayne", {},
+                office="Mullin, Markwayne (Senator)",
+                anchor_date=date(2026, 3, 24),
+                members=_sample_members(),
+            )
+
+    def test_same_surname_disambiguated_by_service_interval(self):
+        # The fixture holds two Grahams in one surname group. "Lindsey" can
+        # only be the departed senator, and the date proves he was serving.
+        assert _resolve_state(
+            "Graham", "Lindsey", {}, office="Graham, Lindsey (Senator)",
+            anchor_date=date(2026, 5, 2), members=_sample_members(),
+        ) == "SC"
+
+    def test_vacancy_day_between_two_grahams_fails_closed(self):
+        # 2026-07-12 falls after Lindsey's death (2026-07-11) and before
+        # Darline's appointment (2026-07-14). Treating a filing on that day as
+        # either senator would guess, so resolution must fail closed.
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Graham", "Lindsey", {}, office="Graham, Lindsey (Senator)",
+                anchor_date=date(2026, 7, 12), members=_sample_members(),
+            )
+
+    def test_appointed_successor_resolves_once_serving(self):
+        assert _resolve_state(
+            "Graham", "Darline", {}, office="Graham, Darline (Senator)",
+            anchor_date=date(2026, 8, 1), members=_sample_members(),
+        ) == "SC"
+
+    def test_snapshot_resolves_unique_name_without_anchor_date(self):
+        # Without a date the surname+given-name group is still unique for
+        # Mullin, so a unknown-parse-date filing can still resolve on identity.
+        assert _resolve_state(
+            "Mullin", "Markwayne", {}, office="Mullin, Markwayne (Senator)",
+            members=_sample_members(),
+        ) == "OK"
+
+    def test_snapshot_given_name_matching_stays_bounded(self):
+        # No enumerated relation links "Lindse" to "Lindsey"; the surname
+        # group alone must not fuzzy-match.
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Graham", "Lindse", {}, office="Graham, Lindse (Senator)",
+                anchor_date=date(2026, 5, 2), members=_sample_members(),
+            )
+
+    def test_snapshot_does_not_resolve_unknown_person(self):
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Bogus", "Nobody", {}, office="Bogus, Nobody (Senator)",
+                anchor_date=date(2024, 1, 1), members=_sample_members(),
+            )
+
+    def test_unique_current_listing_match_takes_precedence_over_snapshot(self):
+        # The authoritative current listing wins when it uniquely identifies
+        # the filer, even if the snapshot disagrees on state (freshness).
+        senators = {("rounds", "mike"): "XX"}
+        assert _resolve_state(
+            "Rounds", "Mike", senators,
+            office="Rounds, Mike (Senator)",
+            anchor_date=date(2026, 1, 1),
+            members=_sample_members(),
+        ) == "XX"
+
+
+class TestParseSenateMembersJson:
+    def test_parses_fixture_identity_and_terms(self):
+        members = _sample_members()
+        assert len(members) == 10
+        mullin = next(m for m in members if m.bioguide_id == "M001190")
+        assert mullin.last_name == "Mullin"
+        assert mullin.first_name == "Markwayne"
+        assert mullin.state == "OK"
+        assert mullin.terms == (
+            SenateMemberTerm(date(2023, 1, 3), date(2026, 3, 23)),
+        )
+        coons = next(m for m in members if m.bioguide_id == "C001088")
+        assert len(coons.terms) == 3
+        assert coons.terms[0] == SenateMemberTerm(
+            date(2010, 11, 15), date(2015, 1, 3)
+        )
+
+    def test_parses_scheduled_term_end_for_current_member(self):
+        armstrong = next(m for m in _sample_members() if m.bioguide_id == "A000383")
+        assert armstrong.terms == (
+            SenateMemberTerm(date(2026, 3, 24), date(2027, 1, 3)),
+        )
+
+    def test_serves_on_intervals_are_inclusive_on_both_ends(self):
+        mullin = next(m for m in _sample_members() if m.bioguide_id == "M001190")
+        assert _serves_on(mullin, date(2023, 1, 3))
+        assert _serves_on(mullin, date(2026, 3, 23))
+        assert not _serves_on(mullin, date(2023, 1, 2))
+        assert not _serves_on(mullin, date(2026, 3, 24))
+
+    def test_packaged_reference_snapshot_loads(self):
+        # The committed asset is part of the repo; its data must reconcile
+        # with the out-of-band bioguide verification of the boundary members.
+        members = load_default_senate_members()
+        by_id = {m.bioguide_id: m for m in members}
+        assert len(members) == 269  # 100 current + 169 departed (2000-present)
+        assert by_id["M001190"].last_name == "Mullin"
+        assert by_id["M001190"].state == "OK"
+        assert by_id["A000383"].state == "OK"
+        assert by_id["G000359"].first_name == "Lindsey"
+        assert by_id["G000359"].state == "SC"
+        assert by_id["G000608"].last_name == "Graham"  # source lastName artifact corrected
+        assert by_id["G000608"].state == "SC"
+
+    def test_malformed_json_raises(self):
+        with pytest.raises(SenateStateResolveError):
+            parse_senate_members_json(b"{not json")
+
+    def test_non_object_payload_raises(self):
+        with pytest.raises(SenateStateResolveError):
+            parse_senate_members_json(b"[[1]]")
+
+    def test_missing_identity_field_raises(self):
+        data = (
+            b'{"members":[{"bioguide_id":"X","last_name":"A","first_name":"B",'
+            b'"terms":[{"start":"2023-01-03","end":"2025-01-03"}]}]}'
+        )
+        with pytest.raises(SenateStateResolveError):
+            parse_senate_members_json(data)
+
+    def test_member_without_terms_raises(self):
+        data = (
+            b'{"members":[{"bioguide_id":"X","last_name":"A","first_name":"B",'
+            b'"state":"SS","terms":[]}]}'
+        )
+        with pytest.raises(SenateStateResolveError):
+            parse_senate_members_json(data)
+
+    def test_term_without_start_raises(self):
+        data = (
+            b'{"members":[{"bioguide_id":"X","last_name":"A","first_name":"B",'
+            b'"state":"SS","terms":[{"end":null}]}]}'
+        )
+        with pytest.raises(SenateStateResolveError):
+            parse_senate_members_json(data)
+
+    def test_malformed_term_date_raises(self):
+        data = (
+            b'{"members":[{"bioguide_id":"X","last_name":"A","first_name":"B",'
+            b'"state":"SS","terms":[{"start":"2023/01/03","end":null}]}]}'
+        )
+        with pytest.raises(SenateStateResolveError):
+            parse_senate_members_json(data)
+
+    def test_empty_members_raises(self):
+        with pytest.raises(SenateStateResolveError):
+            parse_senate_members_json(b'{"members":[]}')
+
+
+def _sample_records() -> list[dict]:
+    """Reusable tiny congress-legislators records for generator tests."""
+    return [
+        {
+            "id": {"bioguide": "G000608"},
+            "name": {
+                "first": "Darline",
+                "last": "Graham Nordone",
+                "official_full": "Darline Graham",
+            },
+            "terms": [
+                {"type": "sen", "start": "2026-07-14", "end": "2027-01-03",
+                 "state": "SC", "party": "Republican"}
+            ],
+        },
+        {
+            "id": {"bioguide": "M001190"},
+            "name": {"first": "Markwayne", "last": "Mullin",
+                     "official_full": "Markwayne Mullin"},
+            "terms": [
+                {"type": "sen", "start": "2023-01-03", "end": "2026-03-23",
+                 "state": "OK", "party": "Republican"}
+            ],
+        },
+        {
+            "id": {"bioguide": "H000001"},
+            "name": {"first": "Jane", "last": "House"},
+            "terms": [
+                {"type": "rep", "start": "2023-01-03", "end": "2025-01-03",
+                 "state": "XX"}
+            ],
+        },
+        {
+            "id": {"bioguide": "S000045"},
+            "name": {"first": "Old", "last": "Prior"},
+            "terms": [
+                {"type": "sen", "start": "1995-01-04", "end": "1999-12-31",
+                 "state": "CA"}
+            ],
+        },
+        {
+            "id": {"bioguide": "S000046"},
+            "name": {"first": "Operator", "last": "Senator"},
+            "terms": [
+                {"type": "sen", "start": "1998-01-06", "end": "2004-01-03",
+                 "state": "NV"}
+            ],
+        },
+    ]
+
+
+class TestSenateMembersSnapshot:
+    def test_builds_expected_members_from_records(self):
+        snapshot = build_members_snapshot(
+            _sample_records(), generated_at="2026-09-22"
+        )
+        assert snapshot["generated_at"] == "2026-09-22"
+        assert snapshot["coverage_start"] == "2000-01-01"
+        assert "source" in snapshot and "provenance_note" in snapshot
+        members = snapshot["members"]
+        assert len(members) == 3
+        by_id = {m["bioguide_id"]: m for m in members}
+        # House term excluded, pre-2000 service excluded.
+        assert "H000001" not in by_id
+        assert "S000045" not in by_id
+        # Overlapping-2000 senator kept.
+        assert by_id["S000046"]["state"] == "NV"
+        # Source lastName artifact corrected from official_full.
+        assert by_id["G000608"]["last_name"] == "Graham"
+        assert by_id["G000608"]["first_name"] == "Darline"
+        assert by_id["M001190"]["terms"] == [
+            {"start": "2023-01-03", "end": "2026-03-23"}
+        ]
+        # Deterministic ordering by surname/given name/bioguide id.
+        surnames = [m["last_name"] for m in members]
+        assert surnames == sorted(surnames, key=str.lower)
+
+    def test_boundary_members_provenance_is_recorded(self):
+        snapshot = build_members_snapshot(_sample_records())
+        boundaries = snapshot["boundary_members"]
+        assert "M001190" in boundaries and "A000383" in boundaries
+        assert "G000359" in boundaries and "G000608" in boundaries
+
+    def test_missing_bioguide_raises(self):
+        records = [{"name": {"first": "X", "last": "Y"},
+                    "terms": [{"type": "sen", "start": "2023-01-03", "end": None}]}]
+        with pytest.raises(ValueError):
+            build_members_snapshot(records)
+
+    def test_record_without_name_raises(self):
+        records = [{"id": {"bioguide": "X"},
+                    "name": {},
+                    "terms": [{"type": "sen", "start": "2023-01-03", "end": None}]}]
+        with pytest.raises(ValueError):
+            build_members_snapshot(records)
+
+    def test_sen_term_without_start_raises(self):
+        records = [{
+            "id": {"bioguide": "X"},
+            "name": {"first": "X", "last": "Y"},
+            "terms": [{"type": "sen", "end": "2025-01-03"}],
+        }]
+        with pytest.raises(ValueError):
+            build_members_snapshot(records)
+
+    def test_no_senate_members_raises(self):
+        records = [{
+            "id": {"bioguide": "X"},
+            "name": {"first": "X", "last": "Y"},
+            "terms": [{"type": "rep", "start": "2023-01-03", "end": None}],
+        }]
+        with pytest.raises(ValueError):
+            build_members_snapshot(records)
+
+    def test_diff_is_empty_when_members_equal(self):
+        build = lambda: build_members_snapshot(_sample_records(), generated_at="2026-09-22")
+        assert diff_snapshots(build(), build_members_snapshot(_sample_records())) == []
+
+    def test_diff_reports_field_term_and_membership_changes(self):
+        committed = build_members_snapshot(_sample_records(), generated_at="2026-09-22")
+        records = [dict(r) for r in _sample_records()]
+        # Drift: Mullin's term extends.
+        for r in records:
+            if r["id"]["bioguide"] == "M001190":
+                r["terms"][0] = dict(r["terms"][0], end="2026-09-30")
+        fresh = build_members_snapshot(records, generated_at="2026-09-22")
+        diffs = diff_snapshots(committed, fresh)
+        assert any("M001190" in d and "terms" in d for d in diffs)
+
+        lean = build_members_snapshot(
+            [r for r in records if r["id"]["bioguide"] != "M001190"],
+            generated_at="2026-09-22",
+        )
+        diffs = diff_snapshots(fresh, lean)
+        assert any("- removed member Mullin" in d for d in diffs)
+        assert any("+ new member Mullin" in d for d in diff_snapshots(lean, fresh))
+
+
+class TestRefreshCli:
+    """The refresh script's CLI surface, driven from local dataset files."""
+
+    def _datasets(self, tmp_path):
+        # cur.json holds currently-serving members; hist.json holds historical
+        # ones. The records exercise the current+departed+non-senate mix.
+        records = _sample_records()
+        cur = tmp_path / "cur.json"
+        hist = tmp_path / "hist.json"
+        cur.write_text(json.dumps(records))
+        hist.write_text(json.dumps([]))
+        return str(cur), str(hist)
+
+    def _committed(self, tmp_path, monkeypatch):
+        snapshot = build_members_snapshot(_sample_records(), generated_at="2026-09-22")
+        path = tmp_path / "senate_members.json"
+        path.write_text(json.dumps(snapshot))
+        monkeypatch.setattr(senate_members_refresh, "SNAPSHOT_PATH", path)
+        return path
+
+    def test_check_passes_when_snapshot_matches(self, tmp_path, monkeypatch):
+        cur, hist = self._datasets(tmp_path)
+        self._committed(tmp_path, monkeypatch)
+        assert senate_members_refresh._main(["--cur", cur, "--hist", hist, "--check"]) == 0
+
+    def test_check_fails_on_drift(self, tmp_path, monkeypatch):
+        import copy
+
+        cur, hist = self._datasets(tmp_path)
+        committed = build_members_snapshot(_sample_records(), generated_at="2026-09-22")
+        committed["members"] = copy.deepcopy(committed["members"])
+        for member in committed["members"]:
+            if member["bioguide_id"] == "M001190":
+                member["terms"] = [{"start": "2023-01-03", "end": "2026-09-30"}]
+        path = tmp_path / "senate_members.json"
+        path.write_text(json.dumps(committed))
+        monkeypatch.setattr(senate_members_refresh, "SNAPSHOT_PATH", path)
+        assert senate_members_refresh._main(["--cur", cur, "--hist", hist, "--check"]) == 1
+
+    def test_output_writes_snapshot_file(self, tmp_path):
+        cur, hist = self._datasets(tmp_path)
+        out = tmp_path / "out.json"
+        assert senate_members_refresh._main(
+            ["--cur", cur, "--hist", hist, "--output", str(out)]
+        ) == 0
+        payload = json.loads(out.read_text())
+        assert len(payload["members"]) == 3
+
+    def test_cur_without_hist_is_rejected(self, tmp_path):
+        cur, _ = self._datasets(tmp_path)
+        with pytest.raises(SystemExit):
+            senate_members_refresh._main(["--cur", cur, "--check"])
+
 
 class TestDefaultTransport:
     """Default ``SenateEfdSource()`` transport wiring (hermetic).
@@ -733,6 +1117,66 @@ class TestSenateEfdSourceFlow:
         assert armstrong.first == "Alan"
         assert armstrong.state_district == "OK00"
         assert armstrong.state_district != "TN00"
+
+    def _listing_transport(self, rows):
+        payload = json.dumps(
+            {
+                "draw": 1,
+                "recordsTotal": len(rows),
+                "recordsFiltered": len(rows),
+                "data": rows,
+            }
+        ).encode()
+        transport = _MemoryTransport(records_total=len(rows))
+        transport.listing_pages = [payload, _load_fixture("listing_empty.json")]
+        return transport
+
+    def test_fetch_index_resolves_departed_senators_via_snapshot(self):
+        # With no current-listing knowledge ({}) the adapter still resolves
+        # departed senators by matching the reference snapshot's service
+        # intervals: Markwayne Mullin (OK, resigned 2026-03-23) and Lindsey
+        # Graham (SC, died 2026-07-11).
+        rows = [
+            [
+                "Markwayne", "Mullin", "Mullin, Markwayne (Senator)",
+                f'<a href="/search/view/ptr/{ELECTRONIC_DETAIL_ID}/">'
+                "Periodic Transaction Report</a>",
+                "02/10/2024",
+            ],
+            [
+                "Lindsey", "Graham", "Graham, Lindsey (Senator)",
+                '<a href="/search/view/ptr/b999bc0e-3eb0-4ca9-ab07-8e8f2e04b41f/">'
+                "Periodic Transaction Report</a>",
+                "05/02/2026",
+            ],
+        ]
+        source = SenateEfdSource(
+            transport=self._listing_transport(rows),
+            senators={},
+            members=_sample_members(),
+        )
+        filings = source.fetch_index(year=2026)
+        by_doc = {f.doc_id: f for f in filings}
+        assert by_doc[ELECTRONIC_DETAIL_ID].state_district == "OK00"
+        assert by_doc["b999bc0e-3eb0-4ca9-ab07-8e8f2e04b41f"].state_district == "SC00"
+
+    def test_fetch_index_fails_closed_on_vacancy_date(self):
+        # Graham died 2026-07-11; Darline started 2026-07-14. 07/12/2026 is a
+        # vacancy day: no member with the "Lindsey" identity was serving, so
+        # the adapter must fail closed rather than attribute the filing.
+        rows = [[
+            "Lindsey", "Graham", "Graham, Lindsey (Senator)",
+            f'<a href="/search/view/ptr/{ELECTRONIC_DETAIL_ID}/">'
+            "Periodic Transaction Report</a>",
+            "07/12/2026",
+        ]]
+        source = SenateEfdSource(
+            transport=self._listing_transport(rows),
+            senators={},
+            members=_sample_members(),
+        )
+        with pytest.raises(SenateStateResolveError):
+            source.fetch_index(year=2026)
 
     def test_fetch_detail_returns_electronic_html_after_index(self):
         transport = _DetailTransport(

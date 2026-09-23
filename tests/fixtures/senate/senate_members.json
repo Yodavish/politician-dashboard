@@ -1,0 +1,176 @@
+{
+  "source": "unitedstates/congress-legislators (legislators-current.json + legislators-historical.json)",
+  "coverage_start": "2000-01-01",
+  "members": [
+    {
+      "bioguide_id": "A000383",
+      "last_name": "Armstrong",
+      "first_name": "Alan",
+      "state": "OK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2026-03-24",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "B001299",
+      "last_name": "Banks",
+      "first_name": "Jim",
+      "state": "IN",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "C001088",
+      "last_name": "Coons",
+      "first_name": "Christopher",
+      "state": "DE",
+      "party": "Democrat",
+      "terms": [
+        {
+          "start": "2010-11-15",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000608",
+      "last_name": "Graham",
+      "first_name": "Darline",
+      "state": "SC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2026-07-14",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "G000359",
+      "last_name": "Graham",
+      "first_name": "Lindsey",
+      "state": "SC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2009-01-03"
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2026-07-11"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001242",
+      "last_name": "Moreno",
+      "first_name": "Bernie",
+      "state": "OH",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001190",
+      "last_name": "Mullin",
+      "first_name": "Markwayne",
+      "state": "OK",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2026-03-23"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000605",
+      "last_name": "Rounds",
+      "first_name": "Mike",
+      "state": "SD",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2021-01-03"
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2027-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001217",
+      "last_name": "Scott",
+      "first_name": "Rick",
+      "state": "FL",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2019-01-08",
+          "end": "2025-01-03"
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2031-01-03"
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001184",
+      "last_name": "Scott",
+      "first_name": "Tim",
+      "state": "SC",
+      "party": "Republican",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2015-01-03"
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2017-01-03"
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2023-01-03"
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2029-01-03"
+        }
+      ]
+    }
+  ]
+}
