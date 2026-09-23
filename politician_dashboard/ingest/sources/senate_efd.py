@@ -48,6 +48,7 @@ from politician_dashboard.ingest.sources.base import (
 
 BASE_URL = "https://efdsearch.senate.gov"
 LANDING_URL = f"{BASE_URL}/search/home/"
+SEARCH_URL = f"{BASE_URL}/search/"
 LISTING_URL = f"{BASE_URL}/search/report/data/"
 SENATORS_XML_URL = "https://www.senate.gov/general/contact_information/senators_cfm.xml"
 
@@ -58,8 +59,16 @@ USER_AGENT = (
 REQUEST_TIMEOUT_SECONDS = 60
 USER_AGENT_HEADER = "Mozilla/5.0 (politician-dashboard/0.1.0; research)"
 
-# DataTables listing parameters used by efdsearch.senate.gov.
+# DataTables listing parameters used by efdsearch.senate.gov. The live search
+# page serializes the report/filer type filters as *bracketed strings* (e.g.
+# "report_types=[11]" and "filer_types=[]"), not as array-style
+# "<key>[]=<value>" form fields; the production request that returns HTTP 200
+# uses those bracketed values. The listing POST is an AJAX call that also
+# carries the session CSRF token, an XMLHttpRequest marker and the /search/
+# Referer so Django CSRF and origin checks accept it.
 PTR_REPORT_TYPE = "11"  # Periodic Transaction Report
+LISTING_REPORT_TYPES = f"[{PTR_REPORT_TYPE}]"
+LISTING_FILER_TYPES = "[]"
 DEFAULT_PAGE_SIZE = 100
 _MAX_PAGES = 20
 
@@ -456,6 +465,7 @@ class SenateEfdSource(DisclosureSource):
         self._transport = transport
         self._senators = senators
         self._consented = False
+        self._csrf_token: str | None = None
 
     def _accept_agreement(self) -> None:
         """Run the official prohibition-agreement flow."""
@@ -465,6 +475,11 @@ class SenateEfdSource(DisclosureSource):
             raise SenateAgreementError(f"Landing fetch failed: {exc}") from exc
 
         action, method, token = parse_agreement_html(landing)
+        # Persist the token: the listing call is a separate AJAX request the
+        # server authenticates with the same session via the X-CSRFToken
+        # header (Django mints one token per session for both the form field
+        # and the csrftoken cookie).
+        self._csrf_token = token
         body = urllib.parse.urlencode(
             {
                 _CSRF_FIELD_NAME: token,
@@ -495,19 +510,27 @@ class SenateEfdSource(DisclosureSource):
                 "draw": "1",
                 "start": str(start),
                 "length": str(length),
-                "order[0][column]": "4",
-                "order[0][dir]": "asc",
-                "search[value]": "",
-                "search[regex]": "false",
-                "report_types[]": PTR_REPORT_TYPE,
+                "report_types": LISTING_REPORT_TYPES,
+                "filer_types": LISTING_FILER_TYPES,
                 "submitted_start_date": f"01/01/{year} 00:00:00",
                 "submitted_end_date": f"12/31/{year} 23:59:59",
+                "candidate_state": "",
+                "senator_state": "",
+                "office_id": "",
+                "first_name": "",
+                "last_name": "",
             }
         ).encode()
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "X-CSRFToken": self._csrf_token,
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": SEARCH_URL,
+        }
         response = self._transport.post(
             LISTING_URL,
             params,
-            {"Content-Type": "application/x-www-form-urlencoded"},
+            headers,
         )
         try:
             payload = json.loads(response.decode("utf-8"))

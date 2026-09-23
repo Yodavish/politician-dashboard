@@ -11,6 +11,7 @@ Conventions intentionally match ``tests/test_house_clerk.py``.
 
 from __future__ import annotations
 
+import urllib.parse
 from datetime import date
 from pathlib import Path
 
@@ -55,6 +56,17 @@ def _sample_senators() -> dict[tuple[str, str], str]:
     return parse_senators_xml(_load_fixture("senators_cfm.xml"))
 
 
+def _parse_body(body: bytes) -> dict[str, str]:
+    """Decode a urlencoded POST body into its form fields.
+
+    ``keep_blank_values=True`` preserves the empty filter fields (e.g.
+    ``candidate_state=``) that the live page sends.
+    """
+    return dict(
+        urllib.parse.parse_qsl(body.decode("utf-8"), keep_blank_values=True)
+    )
+
+
 class _MemoryTransport:
     """Replays landing/agreement/listing/senators responses from fixtures.
 
@@ -73,6 +85,7 @@ class _MemoryTransport:
         self.senators = _load_fixture("senators_cfm.xml")
         self.records_total = records_total
         self.post_urls: list[str] = []
+        self.posts: list[tuple[str, bytes, dict[str, str]]] = []
 
     def get(self, url: str) -> bytes:
         if "contact_information" in url:
@@ -83,6 +96,7 @@ class _MemoryTransport:
 
     def post(self, url: str, body: bytes, headers=None) -> bytes:
         self.post_urls.append(url)
+        self.posts.append((url, body, headers or {}))
         if "home" in url:
             return b"<html>accepted</html>"
         if "data" in url:
@@ -454,3 +468,125 @@ class TestSenateEfdSourceFlow:
         assert b"Williams Companies" in data
         # agreement POST happened before the view GET
         assert any("home" in u for u in transport.post_urls)
+
+
+class TestSenateListingRequestContract:
+    """The listing POST must reproduce the live eFD search request contract.
+
+    Regression for the production HTTP 403 on POST /search/report/data/.
+    The live eFD search sends the session's X-CSRFToken header, the
+    X-Requested-With XMLHttpRequest marker, and the /search/ Referer on its
+    AJAX listing request. The production regression is covered by reproducing
+    that known-good request contract. The body must use the bracketed string
+    parameter shapes the live page (and the known-good request) use --
+    report_types=[11], filer_types=[] -- not
+    array-style "<key>[]=<value>" form keys.
+
+    These tests assert the exact request contract the adapter emits, not
+    merely that a request occurred.
+    """
+
+    def _run(self, transport):
+        source = SenateEfdSource(transport=transport)
+        source.fetch_index(year=2026)
+        return source
+
+    def _listing_posts(self, transport):
+        listing = [p for p in transport.posts if "data" in p[0]]
+        assert listing, "adapter must issue listing POSTs"
+        return listing
+
+    @staticmethod
+    def _expected_csrf_token() -> str:
+        return parse_agreement_html(_load_fixture("landing.html"))[2]
+
+    def test_listing_post_transmits_the_agreement_csrf_token(self):
+        transport = _MemoryTransport(records_total=2)
+        source = self._run(transport)
+        expected = self._expected_csrf_token()
+        assert source._csrf_token == expected
+        for _, _, headers in self._listing_posts(transport):
+            assert headers["X-CSRFToken"] == expected
+
+    def test_listing_post_sends_ajax_headers(self):
+        transport = _MemoryTransport(records_total=2)
+        self._run(transport)
+        for _, _, headers in self._listing_posts(transport):
+            assert headers["X-Requested-With"] == "XMLHttpRequest"
+            assert headers["Referer"] == "https://efdsearch.senate.gov/search/"
+            assert (
+                headers["Content-Type"]
+                == "application/x-www-form-urlencoded; charset=UTF-8"
+            )
+
+    def test_listing_post_body_matches_live_parameter_contract(self):
+        transport = _MemoryTransport(records_total=2)
+        self._run(transport)
+        for _, body, _ in self._listing_posts(transport):
+            assert set(_parse_body(body)) == {
+                "draw",
+                "start",
+                "length",
+                "report_types",
+                "filer_types",
+                "submitted_start_date",
+                "submitted_end_date",
+                "candidate_state",
+                "senator_state",
+                "office_id",
+                "first_name",
+                "last_name",
+            }
+
+    def test_listing_post_encodes_report_and_filer_types_as_bracketed_strings(self):
+        transport = _MemoryTransport(records_total=2)
+        self._run(transport)
+        for _, body, _ in self._listing_posts(transport):
+            params = _parse_body(body)
+            assert params["report_types"] == "[11]"
+            assert params["filer_types"] == "[]"
+            # array-style form keys must not be sent
+            assert "report_types[]" not in params
+            assert "filer_types[]" not in params
+
+    def test_listing_post_targets_pagination_and_filter_year(self):
+        transport = _MemoryTransport(records_total=2)
+        self._run(transport)
+        _, body, _ = self._listing_posts(transport)[0]
+        params = _parse_body(body)
+        assert params["draw"] == "1"
+        assert params["start"] == "0"
+        assert params["length"] == "100"
+        assert params["submitted_start_date"] == "01/01/2026 00:00:00"
+        assert params["submitted_end_date"] == "12/31/2026 23:59:59"
+        for key in (
+            "candidate_state",
+            "senator_state",
+            "office_id",
+            "first_name",
+            "last_name",
+        ):
+            assert params[key] == ""
+
+    def test_csrf_token_is_stable_across_pagination_posts(self):
+        # records_total is left at the fixture's 131 (>= 2 rows fetched), so
+        # the adapter issues a second listing POST for the next page.
+        transport = _MemoryTransport()
+        source = self._run(transport)
+        listing = self._listing_posts(transport)
+        assert len(listing) >= 2
+        assert {headers["X-CSRFToken"] for _, _, headers in listing} == {
+            source._csrf_token
+        }
+
+    def test_agreement_post_carries_form_csrf_and_checkbox(self):
+        transport = _MemoryTransport(records_total=2)
+        self._run(transport)
+        agreement = [p for p in transport.posts if "home" in p[0]]
+        assert len(agreement) == 1
+        _, body, headers = agreement[0]
+        params = _parse_body(body)
+        assert params["csrfmiddlewaretoken"] == self._expected_csrf_token()
+        assert params["prohibition_agreement"] == "1"
+        assert headers["Content-Type"] == "application/x-www-form-urlencoded"
+        assert headers["Referer"] == LANDING_URL
