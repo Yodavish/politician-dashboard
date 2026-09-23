@@ -2,6 +2,7 @@
 
 Usage:
     python -m politician_dashboard.ingest [--year 2025]
+    python -m politician_dashboard.ingest --source senate [--year 2026]
     python -m politician_dashboard.ingest --backfill [--since 2011]
 """
 
@@ -14,7 +15,11 @@ from datetime import datetime, timezone
 import psycopg
 
 from politician_dashboard.config import get_database_url
-from politician_dashboard.ingest.runner import IngestionResult, run_ingestion
+from politician_dashboard.ingest.runner import (
+    IngestionResult,
+    run_ingestion,
+    run_senate_ingestion,
+)
 
 EARLIEST_YEAR = 2011
 
@@ -37,7 +42,17 @@ def resolve_years(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m politician_dashboard.ingest",
-        description="Ingest U.S. House PTR disclosures into PostgreSQL.",
+        description="Ingest U.S. House or Senate PTR disclosures into PostgreSQL.",
+    )
+    parser.add_argument(
+        "--source",
+        choices=("house", "senate"),
+        default="house",
+        help=(
+            "Disclosure source to ingest. 'house' (the House Clerk) is the "
+            "default; 'senate' ingests the Senate eFD portal and must be "
+            "selected explicitly. No auto-detection is performed."
+        ),
     )
     parser.add_argument(
         "--year",
@@ -90,8 +105,11 @@ def main(argv: list[str] | None = None) -> int:
 
     with psycopg.connect(database_url, autocommit=True) as conn:
         for year in years:
-            print(f"Ingesting {year}...")
-            result = run_ingestion(year=year, conn=conn)
+            print(f"Ingesting {args.source} {year}...")
+            if args.source == "senate":
+                result = run_senate_ingestion(year=year, conn=conn)
+            else:
+                result = run_ingestion(year=year, conn=conn)
             print(_format_result(result))
 
     return 0

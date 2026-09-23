@@ -221,3 +221,75 @@ class TestStoreFiling:
         row = _filing_row(temp_database_url, "20032062")
         assert row is not None
         assert row[5] is None  # filing_date
+
+    def test_default_source_is_house_clerk(self, temp_database_url: str):
+        conn = psycopg.connect(temp_database_url)
+        assert store_filing(
+            conn,
+            filing=_filing(),
+            transactions=_transactions(),
+            raw_pdf=PDF_BYTES,
+            pdf_url="https://example.invalid/20032062.pdf",
+        ) is True
+        conn.close()
+
+        with psycopg.connect(temp_database_url) as conn:
+            source = conn.execute(
+                "SELECT source FROM filings WHERE doc_id = %s", ("20032062",)
+            ).fetchone()[0]
+        assert source == "house_clerk"
+
+    def test_persists_senate_source_provenance(self, temp_database_url: str):
+        doc_id = "fda235b3-bad7-4637-8fa1-053f354d929c"
+        conn = psycopg.connect(temp_database_url)
+        assert store_filing(
+            conn,
+            filing=_filing(doc_id=doc_id),
+            transactions=_transactions(),
+            raw_pdf=b"<html>senate detail</html>",
+            pdf_url=(
+                "https://efdsearch.senate.gov/search/view/ptr/"
+                f"{doc_id}/"
+            ),
+            doc_kind="efiled",
+            source="senate_efd",
+        ) is True
+        conn.close()
+
+        with psycopg.connect(temp_database_url) as conn:
+            row = conn.execute(
+                "SELECT source, doc_kind, raw_pdf FROM filings WHERE doc_id = %s",
+                (doc_id,),
+            ).fetchone()
+        assert row[0] == "senate_efd"
+        assert row[1] == "efiled"
+        assert row[2] == b"<html>senate detail</html>"
+
+    def test_uuid_doc_id_is_idempotent(self, temp_database_url: str):
+        doc_id = "fda235b3-bad7-4637-8fa1-053f354d929c"
+        conn = psycopg.connect(temp_database_url)
+        assert store_filing(
+            conn,
+            filing=_filing(doc_id=doc_id),
+            transactions=_transactions(),
+            raw_pdf=b"<html>senate detail</html>",
+            pdf_url=f"https://efdsearch.senate.gov/search/view/ptr/{doc_id}/",
+            doc_kind="efiled",
+            source="senate_efd",
+        ) is True
+        assert store_filing(
+            conn,
+            filing=_filing(doc_id=doc_id),
+            transactions=_transactions(),
+            raw_pdf=b"<html>senate detail</html>",
+            pdf_url=f"https://efdsearch.senate.gov/search/view/ptr/{doc_id}/",
+            doc_kind="efiled",
+            source="senate_efd",
+        ) is False
+        conn.close()
+
+        with psycopg.connect(temp_database_url) as conn:
+            count = conn.execute(
+                "SELECT count(*) FROM filings WHERE doc_id = %s", (doc_id,)
+            ).fetchone()[0]
+        assert count == 1

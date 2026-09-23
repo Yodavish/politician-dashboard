@@ -1,6 +1,6 @@
 # Politician Dashboard
 
-An end-to-end software engineering project for collecting and exploring publicly available U.S. politician stock trade disclosures. The system ingests and parses House Periodic Transaction Reports (PTRs), normalizes and stores the data in PostgreSQL, exposes it through a read-only FastAPI API, and provides a React + TypeScript dashboard for exploring the data.
+An end-to-end software engineering project for collecting and exploring publicly available U.S. politician stock trade disclosures. The system ingests and parses House and Senate Periodic Transaction Reports (PTRs), normalizes and stores the data in PostgreSQL, exposes it through a read-only FastAPI API, and provides a React + TypeScript dashboard for exploring the data.
 
 The project also serves as a practical exploration of modern software engineering practices, including automated testing, CI/CD, static security analysis, dependency auditing, and automated dependency management.
 
@@ -14,8 +14,8 @@ https://github.com/user-attachments/assets/dab255d5-7eee-4e2a-a5af-341e3e981bb1
 
 ## Key Features
 
-- House PTR disclosure ingestion and parsing
-- Idempotent PostgreSQL data storage
+- House and Senate PTR disclosure ingestion and parsing
+- Idempotent PostgreSQL data storage with source provenance
 - Read-only FastAPI REST API
 - React + TypeScript web dashboard
 - URL-based transaction filtering and pagination
@@ -28,7 +28,7 @@ https://github.com/user-attachments/assets/dab255d5-7eee-4e2a-a5af-341e3e981bb1
 
 ## Project Overview
 
-This project collects publicly available House member stock trade disclosures, parses and normalizes the source data, stores the resulting records in PostgreSQL, exposes them through a read-only REST API, and serves a web dashboard (`dashboard/`) for exploring the data.
+This project collects publicly available House and Senate member stock trade disclosures, parses and normalizes the source data, stores the resulting records in PostgreSQL, exposes them through a read-only REST API, and serves a web dashboard (`dashboard/`) for exploring the data.
 
 ## Technology Stack
 
@@ -63,8 +63,8 @@ This project collects publicly available House member stock trade disclosures, p
 
 ## V1 Scope
 
-- Daily-style ingestion of House PTR disclosure PDFs from the Clerk's Office.
-- Parsing and normalization of transaction data.
+- Daily-style ingestion of House PTR disclosure PDFs from the Clerk's Office and Senate eFD PTR disclosures from `efdsearch.senate.gov`.
+- Parsing and normalization of transaction data, with source provenance (`house_clerk` / `senate_efd`) recorded on every filing and ingestion run.
 - Storage in PostgreSQL (Postgres 16) via SQL migrations.
 - A read-only FastAPI REST API (`/health`, `/politicians`, `/filings`, `/transactions`).
 - A React + TypeScript web dashboard (`dashboard/`) that consumes that API.
@@ -82,11 +82,11 @@ politician_dashboard/
 ├── config.py             # DATABASE_URL from the environment
 ├── db.py                 # psycopg connection helper
 ├── ingest/               # Ingestion pipeline
-│   ├── parser.py         #   PDF -> normalized transactions
-│   ├── runner.py         #   per-year orchestration
+│   ├── parser.py         #   House PDF -> normalized transactions
+│   ├── runner.py         #   per-year, per-source orchestration
 │   ├── store.py          #   filing + transactions persistence
-│   ├── sources/          #   House Clerk index/PDF source
-│   └── __main__.py       #   CLI entrypoint
+│   ├── sources/          #   House Clerk + Senate eFD source adapters
+│   └── __main__.py       #   CLI entrypoint (--source house|senate)
 └── migrations/            # SQL migrations
     └── migrate.py        # migration runner
 
@@ -273,7 +273,7 @@ cd /opt/politician-dashboard
 docker compose run --rm api python -m politician_dashboard.migrations.migrate
 ```
 
-The House Clerk ingestion is likewise still run manually.
+The House Clerk and Senate eFD ingestion are likewise still run manually.
 
 ## Security & Dependency Management
 
@@ -357,20 +357,36 @@ npm test          # vitest unit tests
 npm run lint      # oxlint
 ```
 
-## Running the House Clerk Ingestion CLI
+## Running the Ingestion CLI
 
-Ingest the current year's House PTR disclosures:
+Ingest the current year's PTR disclosures. The source is selected explicitly with `--source`; the House Clerk (`house`) is the default, and no auto-detection between sources is performed.
 
 ```bash
-uv run --env-file .env python -m politician_dashboard.ingest
+uv run --env-file .env python -m politician_dashboard.ingest                # House (default)
+uv run --env-file .env python -m politician_dashboard.ingest --source senate
 ```
 
 Options:
 
+- `--source {house,senate}` — disclosure source to ingest (default `house`)
 - `--year YEAR` — ingest a single year (default: current year)
 - `--backfill` — ingest every year from `--since` through the current year
 - `--since YEAR` — starting year for `--backfill` (default 2011)
 - `--database-url URL` — override `DATABASE_URL`
+
+### Senate eFD source
+
+Senate PTRs are collected from the official Senate eFD Search portal (`efdsearch.senate.gov`), which requires the site's prohibition-agreement consent flow and serves its index as paginated JSON. Key normalization decisions:
+
+- **Provenance.** Electronic Senate filings are stored in the same `filings`/`transactions` tables as House filings, with `filings.source = 'senate_efd'` and `ingest_runs.source = 'senate_efd'`.
+- **doc_id.** The Senate view id is used as the idempotency key: a UUID for electronic filings (`/search/view/ptr/<uuid>/`), a numeric id for paper filings (`/search/view/paper/<id>/`).
+- **state_district.** Senators have no district, so `state_district` uses the `<STATE>00` pseudo-district convention (e.g. `OK00`). The filer's state is resolved from the official Senate contact listing; an unresolved senator raises an explicit error rather than guessing.
+- **filing_type.** Senate PTRs normalize to the shared cross-chamber `P` filing type.
+- **notification_date.** The Senate detail page carries no notification date, so `transactions.notification_date` is normalized from the listing's "Date Received" (the filing's `filing_date`).
+- **Paper (scanned) filings.** Numeric-id (paper) filings are scans with no machine-readable text layer; they are counted as scanned and never stored or fabricated.
+- **Source preservation.** The raw detail HTML/PDF bytes are stored, and `filings.pdf_url` holds the source view URL.
+
+Live Senate ingestion is available via the explicit `--source senate` flag but is **not** part of the scheduled/daily pipeline in V1.
 
 ## Running the Test Suite
 
@@ -380,17 +396,39 @@ uv run --env-file .env pytest
 
 The database-backed integration tests (storage, migrations, API) require a reachable PostgreSQL and `DATABASE_URL` (provided by `.env`) to run; they are skipped automatically otherwise. The parser and runner unit tests run without a database.
 
-## Data Source / House PTR Explanation
+## Data Source / PTR Explanation
 
-Data comes from the **U.S. House of Representatives Office of the Clerk**, which publishes Members' Financial Disclosure statements as PDFs ("Periodic Transaction Reports", or PTRs). The indexed disclosures are available online for each year; each filing's PDF lists the member's security transactions.
+Data comes from two official sources:
 
-The ingestion pipeline fetches the yearly index, downloads each PTR PDF, extracts and normalizes the transaction records, and stores them keyed by the filing's `doc_id` (idempotent on re-ingest).
+- **U.S. House of Representatives Office of the Clerk**, which publishes Members' Financial Disclosure statements as PDFs ("Periodic Transaction Reports", or PTRs). The indexed disclosures are available online for each year; each filing's PDF lists the member's security transactions.
+- **U.S. Senate Office of Public Records** (eFD Search, `efdsearch.senate.gov`), which publishes Senate PTRs as electronic HTML detail pages or scanned paper documents.
+
+The ingestion pipeline fetches the yearly index for the selected source, acquires each PTR document, extracts and normalizes the transaction records, and stores them keyed by the filing's `doc_id` (idempotent on re-ingest) with source provenance.
+
+## Data Quality
+
+Parsed records remain faithful to the official source documents; source values
+are never silently corrected or reinterpreted. Derived data-quality signals
+(`politician_dashboard/ingest/quality.py`) flag internally inconsistent
+records without mutating them.
+
+Known example: House filing **20033889** (Rep. Steve Cohen, TN09) publishes a
+SONY purchase with transaction date `12/26/2026`, notification date
+`01/21/2026`, and signature date `02/09/2026` — the transaction postdates both
+its own notification and the filing that discloses it. A later **amended**
+filing (**20034452**) reports the same purchase with transaction date
+`12/26/2025`, but that correction is not machine-linked to the original
+filing, so `20033889` is stored and served as `2026-12-26` and flagged as
+`transaction_date_after_notification` / `transaction_date_after_filing`.
+
+By the same evidence rule, Senator Alan Armstrong resolves to `OK00` from the
+official Senate listing (a stale spec expectation claimed `TN00`).
 
 ## Important V1 Limitations
 
-- **House Clerk only.** Data is sourced from the House only; Senate disclosures are not ingested.
-- **Scanned/image-only filings are skipped.** Some disclosures are image-only PDFs with no embedded text; these cannot be parsed and are skipped (counted in the ingestion run).
-- **`politician_id` is a derived V1 identity.** A politician is identified by normalized `state_district + first name + last name`; it is a convenience identifier for grouping and is **not** a permanent, authoritative politician identity.
+- **Live Senate ingestion is opt-in.** Ingestion defaults to House; Senate runs require the explicit `--source senate` flag and are not part of the scheduled pipeline.
+- **Scanned/image-only filings are skipped.** House and Senate paper (image-only) disclosures have no embedded text layer; they cannot be parsed and are skipped (counted in the ingestion run). Senate paper filings are never converted to judgments from their images.
+- **`politician_id` is a derived V1 identity.** A politician is identified by normalized `state_district + first name + last name`; it is a convenience identifier for grouping and is **not** a permanent, authoritative politician identity. Senators use the `<STATE>00` district convention.
 - **No investment scoring or recommendations.** The project stores and serves raw disclosures only; it does not provide buy/sell assessments or scoring.
 - **The API is read-only.** No write/update endpoints are exposed.
 

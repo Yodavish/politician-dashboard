@@ -103,7 +103,7 @@ class _Harness:
             raise result
         return result
 
-    def store(self, conn, *, filing, transactions, raw_pdf, pdf_url, doc_kind):
+    def store(self, conn, *, filing, transactions, raw_pdf, pdf_url, doc_kind, source):
         if self._store_impl is not None:
             return self._store_impl(
                 conn,
@@ -112,6 +112,7 @@ class _Harness:
                 raw_pdf=raw_pdf,
                 pdf_url=pdf_url,
                 doc_kind=doc_kind,
+                source=source,
             )
         self.stored.append(
             {
@@ -121,6 +122,7 @@ class _Harness:
                 "raw_pdf": raw_pdf,
                 "pdf_url": pdf_url,
                 "doc_kind": doc_kind,
+                "source": source,
             }
         )
         return True
@@ -129,7 +131,7 @@ class _Harness:
         self.exists_checks.append(doc_id)
         return self._filing_exists_impl(conn, doc_id)
 
-    def create_run(self, conn, year, started_at) -> int:
+    def create_run(self, conn, year, started_at, source) -> int:
         return next(self._next_run_id)
 
     def finish_run(self, conn, run_id, status, result) -> None:
@@ -173,6 +175,7 @@ class TestRunIngestion:
         assert stored["raw_pdf"] == b"%PDF-1.4 fake"
         assert stored["pdf_url"] == "https://example.invalid/2025/20032062.pdf"
         assert stored["doc_kind"] == "efiled"
+        assert stored["source"] == "house_clerk"
         # Transaction conversion produced a Transaction model
         assert len(stored["transactions"]) == 1
         tx = stored["transactions"][0]
@@ -310,6 +313,24 @@ class TestToTransactions:
         assert tx.owner_token == "SP"
         assert tx.txn_type == "S (partial)"
         assert tx.amount_raw == "$15,001 - $50,000"
+
+    def test_preserves_notes(self) -> None:
+        parsed = {
+            "transactions": [
+                {
+                    "asset_name": "ACME Co",
+                    "txn_type": "S",
+                    "txn_date": date(2020, 5, 14),
+                    "notification_date": date(2020, 5, 20),
+                    "amount_min": 15001,
+                    "amount_max": 50000,
+                    "amount_raw": "$15,001 - $50,000",
+                    "notes": "--",
+                }
+            ]
+        }
+        (tx,) = _to_transactions(parsed)
+        assert tx.notes == "--"
 
 
 class TestResolveYears:

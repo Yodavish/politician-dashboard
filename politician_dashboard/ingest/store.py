@@ -26,6 +26,7 @@ def store_filing(
     raw_pdf: bytes | None,
     pdf_url: str,
     doc_kind: str = "efiled",
+    source: str = "house_clerk",
 ) -> bool:
     """Persist one filing and all of its transactions atomically.
 
@@ -34,6 +35,10 @@ def store_filing(
     (companion transactions are not stored or duplicated). Otherwise the
     filing and every transaction are inserted in a single transaction and
     ``True`` is returned.
+
+    ``raw_pdf`` holds the source document bytes (a PDF for House filings, the
+    HTML detail page for Senate filings); ``source`` records provenance
+    (``house_clerk`` or ``senate_efd``).
 
     If any write fails the whole transaction is rolled back, leaving no
     partial data, and :class:`StoreError` is raised.
@@ -44,9 +49,10 @@ def store_filing(
                 """
                 INSERT INTO filings (
                     doc_id, year, prefix, first_name, last_name, suffix,
-                    state_district, filing_date, doc_kind, pdf_url, raw_pdf
+                    state_district, filing_date, doc_kind, pdf_url, raw_pdf,
+                    source
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (doc_id) DO NOTHING
                 RETURNING id
                 """,
@@ -62,6 +68,7 @@ def store_filing(
                     doc_kind,
                     pdf_url,
                     psycopg.Binary(raw_pdf) if raw_pdf is not None else None,
+                    source,
                 ),
             ).fetchone()
 
@@ -76,9 +83,9 @@ def store_filing(
                         filing_id, sequence, txn_source_id, owner_token,
                         asset_name, ticker, asset_type_code, txn_type,
                         txn_date, notification_date, amount_min, amount_max,
-                        amount_raw
+                        amount_raw, notes
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         filing_id,
@@ -94,6 +101,7 @@ def store_filing(
                         tx.amount_min,
                         tx.amount_max,
                         tx.amount_raw,
+                        tx.notes,
                     ),
                 )
             return True

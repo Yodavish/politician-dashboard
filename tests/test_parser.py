@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+from datetime import date
 
 import pytest
 
@@ -383,3 +384,32 @@ class TestParsePtrPdf:
         pdf_bytes = (FIXTURES / "2025" / "8220747.pdf").read_bytes()
         with pytest.raises(ScannedPdfError):
             parse_ptr_pdf(pdf_bytes)
+
+    def test_source_anomalous_date_20033889(self) -> None:
+        # House filing 20033889 (Rep. Steve Cohen, TN09) publishes a SONY
+        # purchase with transaction date 12/26/2026, notification date
+        # 01/21/2026, and signature date 02/09/2026. The parser must return
+        # exactly what the official source states -- no "correction" to 2025.
+        pdf_bytes = (FIXTURES / "2026" / "20033889.pdf").read_bytes()
+        result = parse_ptr_pdf(pdf_bytes)
+        assert result["filing_id"] == "20033889"
+        assert result["state_district"] == " TN09"
+        (t,) = result["transactions"]
+        assert t["asset_name"] == (
+            "Sony Group Corporation American Depositary Shares (SONY)"
+        )
+        assert t["ticker"] == "SONY"
+        assert t["txn_type"] == "P"
+        assert t["txn_date"] == date(2026, 12, 26)
+        assert t["notification_date"] == date(2026, 1, 21)
+        assert t["amount_min"] == 1001
+        assert t["amount_max"] == 15000
+
+    def test_anomalous_date_is_not_reinterpreted_as_2025(self) -> None:
+        # Regression: the source's 12/26/2026 must never silently become
+        # 12/26/2025, even though the amended filing 20034452 reports the
+        # same purchase as 12/26/2025.
+        pdf_bytes = (FIXTURES / "2026" / "20033889.pdf").read_bytes()
+        (t,) = parse_ptr_pdf(pdf_bytes)["transactions"]
+        assert t["txn_date"] == date(2026, 12, 26)
+        assert t["txn_date"] != date(2025, 12, 26)

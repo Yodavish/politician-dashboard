@@ -26,3 +26,22 @@ def test_run_migrations_creates_schema(temp_database_url: str):
 
 def test_run_migrations_is_idempotent(temp_database_url: str):
     assert run_migrations(temp_database_url) == []
+
+
+def test_run_migrations_tracks_source_provenance(temp_database_url: str):
+    with psycopg.connect(temp_database_url) as conn:
+        rows = conn.execute(
+            "SELECT column_name, column_default FROM information_schema.columns "
+            "WHERE table_name = 'filings'"
+        ).fetchall()
+        columns = {row[0] for row in rows}
+        assert "source" in columns
+        default = dict(rows).get("source")
+        assert default is not None and "house_clerk" in default
+
+    with psycopg.connect(temp_database_url) as conn:
+        rows = conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'ingest_runs'"
+        ).fetchall()
+        assert "source" in {row[0] for row in rows}
