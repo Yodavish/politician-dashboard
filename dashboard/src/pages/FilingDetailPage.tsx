@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { fetchFiling } from "@/api/client";
 import type { FilingDetail } from "@/api/types";
 import { ErrorMessage, Loading } from "@/components/State";
+import TransactionDate from "@/components/TransactionDate";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -123,7 +124,13 @@ export default function FilingDetailPage() {
             {filing.transactions.map((t) => (
               <TableRow key={t.id}>
                 <TableCell>{t.sequence + 1}</TableCell>
-                <TableCell>{formatDate(t.txn_date)}</TableCell>
+                <TableCell>
+                  <TransactionDate
+                    txnDate={t.txn_date}
+                    flags={t.quality_flags}
+                    filingDate={filing.filing_date}
+                  />
+                </TableCell>
                 <TableCell>
                   <div className="font-medium">{t.asset_name}</div>
                   {t.ticker && (

@@ -32,16 +32,19 @@ def filing_dict(row) -> dict:
 
 def transaction_dict(row) -> dict:
     (
-        id_, filing_id, doc_id, sequence, asset_name, ticker, asset_type_code,
-        txn_type, txn_date, notification_date, amount_min, amount_max,
-        amount_raw, owner_token, filing_status, ownership_source, notes,
-        txn_source_id, first_name, last_name, state_district, quality_flags,
+        id_, filing_id, doc_id, filing_date, sequence, asset_name, ticker,
+        asset_type_code, txn_type, txn_date, notification_date, amount_min,
+        amount_max, amount_raw, owner_token, filing_status, ownership_source,
+        notes, txn_source_id, first_name, last_name, state_district,
+        quality_flags,
     ) = row
     return {
         "id": id_,
         "filing_id": filing_id,
         "doc_id": doc_id,
+        "filing_date": filing_date,
         "politician_id": politician_id(state_district, first_name, last_name),
+        "politician_name": f"{first_name} {last_name}".strip(),
         "sequence": sequence,
         "asset_name": asset_name,
         "ticker": ticker,

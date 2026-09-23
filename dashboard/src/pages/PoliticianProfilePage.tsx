@@ -8,6 +8,7 @@ import {
 } from "@/api/client";
 import type { FilingDetail, Politician, Transaction } from "@/api/types";
 import { Empty, ErrorMessage, Loading } from "@/components/State";
+import TransactionDate from "@/components/TransactionDate";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -161,6 +162,7 @@ function TransactionsTab({
           value={filters.txn_type}
           onValueChange={(v) => setFilters({ txn_type: v === "empty" ? "" : v })}
           options={TXN_TYPES}
+          optionLabel={txnTypeLabel}
         />
         <ProfileSelect
           label="Owner"
@@ -195,7 +197,13 @@ function TransactionsTab({
               .filter((t) => (filters.owner ? t.owner === filters.owner : true))
               .map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell>{formatDate(t.txn_date)}</TableCell>
+                  <TableCell>
+                    <TransactionDate
+                      txnDate={t.txn_date}
+                      flags={t.quality_flags}
+                      filingDate={t.filing_date}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="font-medium">{t.asset_name}</div>
                     {t.ticker && (
@@ -223,11 +231,13 @@ function ProfileSelect({
   value,
   onValueChange,
   options,
+  optionLabel,
 }: {
   label: string;
   value: string;
   onValueChange: (v: string) => void;
   options: readonly string[];
+  optionLabel?: (value: string) => string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -240,7 +250,7 @@ function ProfileSelect({
           <SelectItem value="empty">Any</SelectItem>
           {options.map((o) => (
             <SelectItem key={o} value={o}>
-              {o}
+              {optionLabel ? optionLabel(o) : o}
             </SelectItem>
           ))}
         </SelectContent>

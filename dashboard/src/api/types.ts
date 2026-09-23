@@ -1,10 +1,5 @@
 // API response types matching the FastAPI backend schemas.
 
-export interface Health {
-  status: string;
-  database: string;
-}
-
 export interface Politician {
   id: string;
   name: string;
@@ -33,7 +28,9 @@ export interface Transaction {
   id: number;
   filing_id: number;
   doc_id: string;
+  filing_date: string | null;
   politician_id: string;
+  politician_name: string;
   sequence: number;
   asset_name: string;
   ticker: string | null;
@@ -49,6 +46,7 @@ export interface Transaction {
   ownership_source: string | null;
   notes: string | null;
   txn_source_id: string | null;
+  quality_flags: string[];
 }
 
 export interface FilingDetail extends FilingSummary {

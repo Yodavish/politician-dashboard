@@ -49,7 +49,9 @@ class Transaction(BaseModel):
     id: int
     filing_id: int
     doc_id: str
+    filing_date: date | None
     politician_id: str
+    politician_name: str
     sequence: int
     asset_name: str
     ticker: str | None

@@ -4,9 +4,9 @@ import { X } from "lucide-react";
 import { fetchTransactions } from "@/api/client";
 import type { Transaction } from "@/api/types";
 import { useFilters } from "@/hooks/useFilters";
-import { usePoliticianNameMap } from "@/hooks/usePoliticians";
 import Pagination from "@/components/Pagination";
 import { Empty, ErrorMessage, Loading } from "@/components/State";
+import TransactionDate from "@/components/TransactionDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,8 +29,8 @@ import {
   ASSET_TYPES,
   OWNERS,
   TXN_TYPES,
+  assetTypeLabel,
   formatAmount,
-  formatDate,
   txnTypeLabel,
 } from "@/lib/format";
 
@@ -65,7 +65,6 @@ export default function TransactionsPage() {
   const [data, setData] = useState<{ items: Transaction[]; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const names = usePoliticianNameMap();
 
   useEffect(() => {
     let cancelled = false;
@@ -141,9 +140,18 @@ export default function TransactionsPage() {
               <TableBody>
                 {data.items.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell>{formatDate(t.txn_date)}</TableCell>
                     <TableCell>
-                      <PoliticianCell id={t.politician_id} names={names} />
+                      <TransactionDate
+                        txnDate={t.txn_date}
+                        flags={t.quality_flags}
+                        filingDate={t.filing_date}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <PoliticianCell
+                        id={t.politician_id}
+                        name={t.politician_name}
+                      />
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">{t.asset_name}</div>
@@ -183,18 +191,10 @@ export default function TransactionsPage() {
   );
 }
 
-function PoliticianCell({
-  id,
-  names,
-}: {
-  id: string;
-  names: Record<string, { name: string; stateDistrict: string }>;
-}) {
-  const entry = names[id];
-  const label = entry ? `${entry.name} (${entry.stateDistrict})` : id;
+function PoliticianCell({ id, name }: { id: string; name: string }) {
   return (
     <Link to={`/politicians/${id}`} className="text-primary hover:underline">
-      {label}
+      {name}
     </Link>
   );
 }
@@ -285,6 +285,7 @@ function RealFilterBar({
           patch({ asset_type_code: v === "empty" ? "" : v })
         }
         options={ASSET_TYPES}
+        optionLabel={assetTypeLabel}
       />
       <div className="flex flex-col gap-1.5">
         <Label className="text-muted-foreground text-xs">From date</Label>

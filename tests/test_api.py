@@ -151,6 +151,10 @@ class TestTransactions:
                     "amount_min", "amount_max", "amount_raw", "owner"):
             assert key in first
         assert first["politician_id"] in {ADERHOLT_ID, PELOSI_ID}
+        assert first["politician_name"] in {"Robert Aderholt", "Nancy Pelosi"}
+        # Newest transaction sorts from the filing whose filing_date is null
+        # in the fixture, so the field must be exposed and nullable.
+        assert first["filing_date"] is None
         assert first["quality_flags"] == []
 
     def test_quality_flags_exposed(self, api_client):
@@ -168,6 +172,8 @@ class TestTransactions:
         items = resp.json()["items"]
         assert len(items) == 2
         assert all(t["politician_id"] == PELOSI_ID for t in items)
+        assert all(t["politician_name"] == "Nancy Pelosi" for t in items)
+        assert all(t["filing_date"] == "2024-03-10" for t in items)
 
     def test_filter_ticker(self, api_client):
         resp = api_client.get("/transactions", params={"ticker": "nvda"})

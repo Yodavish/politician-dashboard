@@ -99,10 +99,11 @@ def list_transactions(
     total = _count(conn, base_from, clauses, params)
     rows = conn.execute(
         f"""
-        SELECT t.id, t.filing_id, f.doc_id, t.sequence, t.asset_name, t.ticker,
-               t.asset_type_code, t.txn_type, t.txn_date, t.notification_date,
-               t.amount_min, t.amount_max, t.amount_raw, t.owner_token,
-               t.filing_status, t.ownership_source, t.notes, t.txn_source_id,
+        SELECT t.id, t.filing_id, f.doc_id, f.filing_date, t.sequence,
+               t.asset_name, t.ticker, t.asset_type_code, t.txn_type,
+               t.txn_date, t.notification_date, t.amount_min, t.amount_max,
+               t.amount_raw, t.owner_token, t.filing_status, t.ownership_source,
+               t.notes, t.txn_source_id,
                f.first_name, f.last_name, f.state_district, t.quality_flags
         FROM {base_from}
         {f'WHERE {" AND ".join(clauses)}' if clauses else ''}
@@ -131,10 +132,11 @@ def get_filing(conn, doc_id: str):
 def list_filing_transactions(conn, filing_id: int):
     return conn.execute(
         """
-        SELECT t.id, t.filing_id, f.doc_id, t.sequence, t.asset_name, t.ticker,
-               t.asset_type_code, t.txn_type, t.txn_date, t.notification_date,
-               t.amount_min, t.amount_max, t.amount_raw, t.owner_token,
-               t.filing_status, t.ownership_source, t.notes, t.txn_source_id,
+        SELECT t.id, t.filing_id, f.doc_id, f.filing_date, t.sequence,
+               t.asset_name, t.ticker, t.asset_type_code, t.txn_type,
+               t.txn_date, t.notification_date, t.amount_min, t.amount_max,
+               t.amount_raw, t.owner_token, t.filing_status, t.ownership_source,
+               t.notes, t.txn_source_id,
                f.first_name, f.last_name, f.state_district, t.quality_flags
         FROM transactions t JOIN filings f ON f.id = t.filing_id
         WHERE t.filing_id = %s

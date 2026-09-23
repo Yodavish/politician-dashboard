@@ -1,6 +1,5 @@
 import type {
   FilingDetail,
-  Health,
   Paginated,
   Politician,
   Transaction,
@@ -24,10 +23,6 @@ async function fetchJson<T>(url: string): Promise<T> {
     throw new ApiError(res.status, body.detail ?? res.statusText);
   }
   return res.json() as Promise<T>;
-}
-
-export function fetchHealth(): Promise<Health> {
-  return fetchJson<Health>(`${BASE}/health`);
 }
 
 export function fetchPoliticians(

@@ -1,6 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import HealthBadge from "@/components/HealthBadge";
 
 const navItems = [
   { to: "/transactions", label: "Recent Trades" },
@@ -33,7 +32,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </NavLink>
             ))}
           </nav>
-          <HealthBadge />
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">
