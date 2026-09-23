@@ -331,14 +331,16 @@ class TestSenateStateResolution:
     """Resolving eFD display names against the official senators listing.
 
     These cases come from the live 2026 eFD listing (EC2 capture). The eFD
-    office cell shows the fuller registered name (``"McConnell, A. Mitchell
-    Jr. (Senator)"``) while the official ``senators_cfm.xml`` lists the
-    preferred given name (``Mitch``). Resolution is anchored on an exact last
-    name and matches the official *primary* given name via an exact token or
-    a bounded, explicitly enumerated given-name relation
+    office cell can show the fuller registered name (``"McConnell, A.
+    Mitchell Jr. (Senator)"``) while the official ``senators_cfm.xml`` lists
+    the preferred given name (``Mitch``), or the reverse (``"Coons, Chris
+    (Senator)"`` vs official ``Christopher A.``). Resolution is anchored on an
+    exact last name and matches the official *primary* given name via an exact
+    token or a bounded, explicitly enumerated given-name relation
     (:data:`_DIMINUTIVE_FORMS`) -- never via an arbitrary string-prefix test,
-    and it must refuse to guess (raise :class:`SenateStateResolveError`) when
-    identity cannot be established unambiguously.
+    in either direction -- and it must refuse to guess (raise
+    :class:`SenateStateResolveError`) when identity cannot be established
+    unambiguously.
     """
 
     @pytest.mark.parametrize(
@@ -449,16 +451,40 @@ class TestSenateStateResolution:
                 office="Scott, James (Senator)",
             )
 
+    def test_reverse_direction_diminutive_collision_raises(self):
+        # The bidirectional check must not collapse a surname group holding
+        # both the formal name and its diminutive into a unique match: eFD
+        # "Chris" is a bounded relation of BOTH "christopher" and "chris", so
+        # identity is genuinely ambiguous and resolution must refuse to guess.
+        officials = {("scott", "christopher"): "XX", ("scott", "chris"): "YY"}
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Scott", "Chris", officials,
+                office="Scott, Chris (Senator)",
+            )
+
     @pytest.mark.parametrize(
         ("efd_given", "official_first"),
         [
             # Standard diminutive relations from the live listing captures.
+            # Each is asserted in both directions: the eFD token may be the
+            # formal form (official publishes the diminutive) or the eFD token
+            # may be the diminutive (official publishes the formal form).
             ("Mitchell", "Mitch"),          # McConnell, KY
+            ("Mitch", "Mitchell"),
             ("James", "Jim"),               # Banks, IN
+            ("Jim", "James"),
             ("Timothy", "Tim"),             # Scott/Kaine/Sheehy
+            ("Tim", "Timothy"),
+            ("Christopher", "Chris"),       # Coons, DE
+            ("Chris", "Christopher"),
+            ("Bernardo", "Bernie"),         # Moreno, OH
+            ("Bernie", "Bernardo"),
         ],
     )
-    def test_supported_diminutive_relations_match(self, efd_given, official_first):
+    def test_supported_diminutive_relations_match_bidirectional(
+        self, efd_given, official_first
+    ):
         assert _given_names_agree(efd_given, official_first)
 
     @pytest.mark.parametrize(
@@ -472,6 +498,15 @@ class TestSenateStateResolution:
             ("Benedict", "Ben"),
             ("Marina", "Marie"),
             ("Daniela", "Dan"),
+            # The bidirectional bounded check must not open the door to
+            # prefix matching in the reverse direction either: an official
+            # primary with a longer form is not matched by an eFD token that
+            # merely shares its prefix.
+            ("Chris", "Christina"),
+            ("Chris", "Christian"),
+            ("Dan", "Daniela"),
+            ("Dan", "Danielle"),
+            ("Jim", "Jimothy"),
         ],
     )
     def test_arbitrary_prefix_is_not_identity(self, efd_given, official_first):
@@ -532,6 +567,49 @@ class TestSenateStateResolution:
             "Banks", "James", officials,
             office="Banks, James (Senator)",
         ) == "IN"
+
+    def test_reverse_direction_live_names_resolve_against_fixture(self):
+        # The 2026 live listing's office cell can carry the diminutive while
+        # the official senators XML publishes the formal name: "Coons, Chris
+        # (Senator)" vs official first name "Christopher A.", and "Moreno,
+        # Bernardo (Senator)" vs official first name "Bernie". The bounded
+        # relation is consulted in both directions, so these must resolve
+        # to their unique same-last-name candidates.
+        senators = _sample_senators()
+        first, last = _office_name_parts(
+            "Coons, Chris (Senator)", "Christopher A", "Coons"
+        )
+        assert _resolve_state(
+            last, first, senators, office="Coons, Chris (Senator)"
+        ) == "DE"
+        first, last = _office_name_parts(
+            "Moreno, Bernardo (Senator)", "Bernie", "Moreno"
+        )
+        assert _resolve_state(
+            last, first, senators, office="Moreno, Bernardo (Senator)"
+        ) == "OH"
+
+    def test_absent_surname_still_unresolved(self):
+        # The officials fixture has no "Mullin" entry at all: the 2026 live
+        # listing row "Mullin, Markwayne (Senator)" must still fail closed
+        # (zero same-last-name candidates) rather than guess.
+        senators = _sample_senators()
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Mullin", "Markwayne", senators,
+                office="Mullin, Markwayne (Senator)",
+            )
+
+    def test_official_primary_unrelated_name_still_unresolved(self):
+        # The officials fixture lists Graham's official first name as
+        # "Darline"; the 2026 live listing displays "Lindsey". No bounded
+        # relation connects them, so resolution must fail closed.
+        senators = _sample_senators()
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Graham", "Lindsey", senators,
+                office="Graham, Lindsey (Senator)",
+            )
 
 
 class TestDefaultTransport:

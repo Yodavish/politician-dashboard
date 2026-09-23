@@ -97,10 +97,12 @@ _SUFFIX_TOKENS = frozenset(
 # nicknames/truncations -- never senator-specific -- and bounded: matching is
 # deliberately NOT a string-prefix test, so e.g. an official primary ``dan``
 # cannot match an eFD display ``Dana`` merely because the strings share a
-# prefix. A map entry only ever contributes a candidate together with an
-# exact last-name anchor and an ambiguity check (see :func:`_resolve_state`),
-# so an entry can never attribute a filing to a senator outside the same
-# last-name group.
+# prefix. The relation is consulted in both directions (the official primary
+# may be the formal form with the eFD token the diminutive, e.g.
+# ``christopher`` for eFD ``chris``). A map entry only ever contributes a
+# candidate together with an exact last-name anchor and an ambiguity check
+# (see :func:`_resolve_state`), so an entry can never attribute a filing to a
+# senator outside the same last-name group.
 _DIMINUTIVE_FORMS: dict[str, frozenset[str]] = {
     "james": frozenset({"jim"}),
     "william": frozenset({"bill", "billy", "will"}),
@@ -108,6 +110,7 @@ _DIMINUTIVE_FORMS: dict[str, frozenset[str]] = {
     "robert": frozenset({"bob", "rob", "bobby", "robby"}),
     "charles": frozenset({"chuck", "charlie"}),
     "bernard": frozenset({"bernie"}),
+    "bernardo": frozenset({"bernie"}),
     "richard": frozenset({"dick", "rich", "rick", "ricky"}),
     "andrew": frozenset({"andy", "drew"}),
     "stephen": frozenset({"steve", "steven"}),
@@ -535,12 +538,16 @@ def _given_names_agree(efd_given: str, official_first: str) -> bool:
     name token (from ``official_first``) matches an eFD given-name token only
     when it (a) equals it exactly, or (b) is a known standard given-name
     relation of it enumerated in :data:`_DIMINUTIVE_FORMS` (e.g. official
-    ``mitch`` for eFD ``mitchell``, official ``jim`` for eFD ``james``). No
-    generic string-prefix test is applied, so e.g. an official ``dan`` cannot
-    match an eFD ``Dana``, ``Daniela``, or ``Danielle`` merely by sharing the
-    ``dan`` prefix. Middle names and initials may be present or absent on
-    either side; an official field that yields no primary token can never
-    match.
+    ``mitch`` for eFD ``mitchell``, official ``jim`` for eFD ``james``,
+    official ``christopher`` for eFD ``chris``). The enumerated relation is
+    consulted in *both* directions: the eFD token may be the formal form and
+    the official primary the diminutive (``mitchell``/``mitch``), or the eFD
+    token may be the diminutive and the official primary the formal form
+    (``chris``/``christopher``). No generic string-prefix test is applied, so
+    e.g. an official ``dan`` cannot match an eFD ``Dana``, ``Daniela``, or
+    ``Danielle`` merely by sharing the ``dan`` prefix. Middle names and
+    initials may be present or absent on either side; an official field that
+    yields no primary token can never match.
     """
     efd_tokens = _given_name_tokens(efd_given)
     if not efd_tokens:
@@ -552,6 +559,8 @@ def _given_names_agree(efd_given: str, official_first: str) -> bool:
         if token == primary:
             return True
         if primary in _DIMINUTIVE_FORMS.get(token, ()):
+            return True
+        if token in _DIMINUTIVE_FORMS.get(primary, ()):
             return True
     return False
 
@@ -782,7 +791,8 @@ def _resolve_state(
 
     Matching is anchored by an *exact* match on the normalized last name; the
     given name must then agree using :func:`_given_names_agree` (exact token,
-    leading-truncation nickname, or a standard English diminutive). This is
+    leading-truncation nickname, or a standard English diminutive in either
+    direction). This is
     how the eFD display forms reconcile with the official listing:
     ``"McConnell, A. Mitchell Jr."`` -> primary ``mitch`` inside ``mitchell``,
     ``"Banks, James E."`` -> standard diminutive ``jim`` for ``james``, and
