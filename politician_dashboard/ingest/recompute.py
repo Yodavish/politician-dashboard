@@ -56,9 +56,15 @@ def recompute_quality_flags(
     only rows whose computed flags differ from the stored flags are updated.
     In ``dry_run`` mode nothing is written and the report describes what
     *would* change.
+
+    Works regardless of the connection's ``autocommit`` mode: the read below
+    is committed up front so ``with conn.transaction()`` starts as the outer
+    transaction and actually COMMITs the updates (on an ``autocommit=True``
+    connection the commit is a harmless no-op).
     """
     report = RecomputeReport(dry_run=dry_run)
     rows = conn.execute(_FLAG_SELECT).fetchall()
+    conn.commit()
 
     # transaction_date_anomalies() only reads txn_date, notification_date and
     # filing.filing_date, so the placeholder values below are never consulted.

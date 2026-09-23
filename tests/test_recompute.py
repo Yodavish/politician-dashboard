@@ -19,7 +19,10 @@ from politician_dashboard.ingest.quality import (
     AFTER_NOTIFICATION,
     NOTIFICATION_AFTER_FILING,
 )
-from politician_dashboard.ingest.recompute import recompute_quality_flags
+from politician_dashboard.ingest.recompute import (
+    RecomputeReport,
+    recompute_quality_flags,
+)
 from politician_dashboard.ingest.store import store_filing
 
 PDF_BYTES = b"%PDF-1.4 fake pdf bytes for testing"
@@ -67,6 +70,11 @@ def _seed(
         )
 
 
+def _recompute(url: str, *, as_of: date, dry_run: bool = False) -> RecomputeReport:
+    with psycopg.connect(url) as conn:
+        return recompute_quality_flags(conn, as_of=as_of, dry_run=dry_run)
+
+
 def _txn_rows(url: str, doc_id: str) -> list[tuple]:
     with psycopg.connect(url) as conn:
         return conn.execute(
@@ -82,7 +90,7 @@ class TestRecomputeQualityFlags:
     def test_sony_filing_gets_all_txn_flags(self, temp_database_url: str):
         url = temp_database_url
         _seed(url, "20033889", date(2026, 2, 9), [(date(2026, 12, 26), date(2026, 1, 21))])
-        report = recompute_quality_flags(psycopg.connect(url), as_of=date(2026, 2, 9))
+        report = _recompute(url, as_of=date(2026, 2, 9))
         assert report.examined == 1
         assert report.changed == 1
         assert report.affected_doc_ids == ["20033889"]
@@ -101,7 +109,7 @@ class TestRecomputeQualityFlags:
     def test_notification_after_filing(self, temp_database_url: str):
         url = temp_database_url
         _seed(url, "20018054", date(2025, 1, 10), [(date(2024, 12, 31), date(2025, 1, 31))])
-        report = recompute_quality_flags(psycopg.connect(url), as_of=date(2025, 2, 1))
+        report = _recompute(url, as_of=date(2025, 2, 1))
         assert report.changed == 1
         assert report.flag_counts == {NOTIFICATION_AFTER_FILING: 1}
         assert _txn_rows(url, "20018054")[0][2] == [NOTIFICATION_AFTER_FILING]
@@ -109,7 +117,7 @@ class TestRecomputeQualityFlags:
     def test_after_notification(self, temp_database_url: str):
         url = temp_database_url
         _seed(url, "20027879", date(2025, 3, 9), [(date(2025, 2, 24), date(2025, 1, 31))])
-        report = recompute_quality_flags(psycopg.connect(url), as_of=date(2025, 4, 1))
+        report = _recompute(url, as_of=date(2025, 4, 1))
         assert report.changed == 1
         assert report.flag_counts == {AFTER_NOTIFICATION: 1}
         assert _txn_rows(url, "20027879")[0][2] == [AFTER_NOTIFICATION]
@@ -117,7 +125,7 @@ class TestRecomputeQualityFlags:
     def test_after_filing(self, temp_database_url: str):
         url = temp_database_url
         _seed(url, "20030312", date(2025, 5, 11), [(date(2025, 5, 17), date(2025, 5, 17))])
-        report = recompute_quality_flags(psycopg.connect(url), as_of=date(2025, 6, 1))
+        report = _recompute(url, as_of=date(2025, 6, 1))
         assert report.changed == 1
         flags = _txn_rows(url, "20030312")[0][2]
         # txn == notification equals draws no after-notification flag, but both
@@ -129,7 +137,7 @@ class TestRecomputeQualityFlags:
     def test_future_transaction_relative_to_as_of(self, temp_database_url: str):
         url = temp_database_url
         _seed(url, "20034520", date(2027, 1, 15), [(date(2026, 12, 26), date(2026, 12, 30))])
-        report = recompute_quality_flags(psycopg.connect(url), as_of=date(2026, 2, 9))
+        report = _recompute(url, as_of=date(2026, 2, 9))
         assert report.changed == 1
         assert report.flag_counts == {AFTER_INGESTION_DATE: 1}
         assert _txn_rows(url, "20034520")[0][2] == [AFTER_INGESTION_DATE]
@@ -137,7 +145,7 @@ class TestRecomputeQualityFlags:
     def test_normal_transaction(self, temp_database_url: str):
         url = temp_database_url
         _seed(url, "20032062", date(2025, 9, 10), [(date(2025, 7, 28), date(2025, 8, 11))])
-        report = recompute_quality_flags(psycopg.connect(url), as_of=date(2025, 9, 1))
+        report = _recompute(url, as_of=date(2025, 9, 1))
         assert report.examined == 1
         assert report.changed == 0
         assert report.flag_counts == {}
@@ -147,9 +155,7 @@ class TestRecomputeQualityFlags:
     def test_dry_run_reports_without_writing(self, temp_database_url: str):
         url = temp_database_url
         _seed(url, "20033889", date(2026, 2, 9), [(date(2026, 12, 26), date(2026, 1, 21))])
-        report = recompute_quality_flags(
-            psycopg.connect(url), as_of=date(2026, 2, 9), dry_run=True
-        )
+        report = _recompute(url, as_of=date(2026, 2, 9), dry_run=True)
         assert report.dry_run is True
         assert report.examined == 1
         assert report.changed == 1
@@ -161,11 +167,11 @@ class TestRecomputeQualityFlags:
     def test_repeated_recomputation_is_idempotent(self, temp_database_url: str):
         url = temp_database_url
         _seed(url, "20033889", date(2026, 2, 9), [(date(2026, 12, 26), date(2026, 1, 21))])
-        first = recompute_quality_flags(psycopg.connect(url), as_of=date(2026, 2, 9))
+        first = _recompute(url, as_of=date(2026, 2, 9))
         assert first.changed == 1
         flags_after_first = _txn_rows(url, "20033889")[0][2]
 
-        second = recompute_quality_flags(psycopg.connect(url), as_of=date(2026, 2, 9))
+        second = _recompute(url, as_of=date(2026, 2, 9))
         assert second.examined == 1
         assert second.changed == 0
         assert second.affected_doc_ids == []
@@ -181,7 +187,7 @@ class TestRecomputeQualityFlags:
             [(date(2026, 12, 26), date(2026, 1, 21))],
             source="senate_efd",
         )
-        report = recompute_quality_flags(psycopg.connect(url), as_of=date(2026, 2, 9))
+        report = _recompute(url, as_of=date(2026, 2, 9))
         assert report.examined == 2
         assert report.changed == 2
         assert sorted(report.affected_doc_ids) == [
@@ -193,7 +199,7 @@ class TestRecomputeQualityFlags:
         url = temp_database_url
         _seed(url, "20033889", date(2026, 2, 9), [(date(2026, 12, 26), date(2026, 1, 21))])
         _seed(url, "20032062", date(2025, 9, 10), [(date(2025, 7, 28), date(2025, 8, 11))])
-        report = recompute_quality_flags(psycopg.connect(url), as_of=date(2026, 2, 9))
+        report = _recompute(url, as_of=date(2026, 2, 9))
         assert report.examined == 2
         assert report.changed == 1
         assert report.affected_doc_ids == ["20033889"]
