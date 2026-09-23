@@ -263,7 +263,7 @@ class HouseClerkSource(DisclosureSource):
                     f"PTR {filing.doc_id} has no usable StateDst: "
                     f"{filing.state_district!r}"
                 )
-            member = resolve_house_member(
+            member = resolve_ptr_member(
                 state_district[:2],
                 filing.last,
                 filing.first,
@@ -540,3 +540,57 @@ def resolve_house_member(
         "no reference House service covers "
         f"{anchor_date.isoformat() if anchor_date else 'any date'}"
     )
+
+
+def _service_ended_before(member: HouseMember, anchor_date: date) -> bool:
+    """Whether every service interval of ``member`` ended before ``anchor_date``.
+
+    A late PTR is filed after the filer left office; admitting it under the
+    post-service fallback requires the member's representation to have
+    conclusively ended before the filing date. An open-ended or later term,
+    or a term ending on/after the filing date, fails this check so a filing
+    is never attributed forward into a vacancy, a service gap, or a seat a
+    member did not yet hold.
+    """
+    return all(
+        term.end is not None and term.end < anchor_date for term in member.terms
+    )
+
+
+def resolve_ptr_member(
+    state: str,
+    last: str,
+    first: str,
+    *,
+    anchor_date: date | None,
+    members: list[HouseMember],
+) -> HouseMember:
+    """Resolve a House PTR filer, admitting post-service late filings.
+
+    The date-anchored resolution (:func:`resolve_house_member`) is tried
+    first: a filing dated during the filer's House service resolves exactly
+    as before. When that fails, the identity is re-resolved without an anchor
+    and accepted only when exactly one reference member matches (ambiguous
+    and unknown identities still raise :class:`HouseMemberResolveError`) AND
+    that member's service ended before the filing date -- i.e. a legitimate
+    late PTR filed after leaving office. No fixed grace period is applied:
+    the requirement is purely that the service record is complete and before
+    the filing date, so a filing dated before service began or during a
+    service gap still fails closed. The resolved member's stable ``bioguide_id``
+    is preserved.
+    """
+    try:
+        return resolve_house_member(
+            state, last, first, anchor_date=anchor_date, members=members
+        )
+    except HouseMemberResolveError:
+        if anchor_date is None:
+            raise
+
+    member = resolve_house_member(state, last, first, anchor_date=None, members=members)
+    if not _service_ended_before(member, anchor_date):
+        raise HouseMemberResolveError(
+            f"Unresolved House member: '{first} {last}' ({state}); "
+            f"no reference House service covers {anchor_date.isoformat()}"
+        )
+    return member

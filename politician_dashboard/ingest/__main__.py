@@ -123,7 +123,7 @@ def _format_report(report) -> str:
 
 
 def _format_result(result: IngestionResult) -> str:
-    return (
+    summary = (
         f"{result.year}: {result.status} "
         f"(run {result.run_id}; indexed={result.filings_indexed}, "
         f"new={result.filings_new}, skipped={result.filings_skipped}, "
@@ -132,6 +132,9 @@ def _format_result(result: IngestionResult) -> str:
         f"parse_failed={result.parse_failed}, "
         f"transactions={result.transactions_stored})"
     )
+    if result.status == "failed" and result.error:
+        summary += f"\n  error: {result.error}"
+    return summary
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -891,7 +891,11 @@ class TestHouseFetchIndexWiring:
         assert by_doc["10000001"].bioguide_id is None
         assert by_doc["20032062"].state_district == "AL04"  # original preserved
 
-    def test_vacancy_filing_fails_closed(self, monkeypatch):
+    def test_post_service_ptr_of_uniquely_identified_member_resolves(self, monkeypatch):
+        # Santos was expelled 2023-12-01 (the term end is inclusive). A PTR
+        # filed the next day is a legitimate post-service late filing: the
+        # date-anchored resolution finds no service, but the unique identity
+        # admits it and preserves the member's bioguide_id.
         xml = (
             "<FinancialDisclosure>"
             "<Member><Last>Santos</Last><First>George</First><FilingType>P</FilingType>"
@@ -901,8 +905,69 @@ class TestHouseFetchIndexWiring:
         )
         self._mock_urlopen(monkeypatch, self._zip_with_xml(xml))
         source = HouseClerkSource(members=_house_members())
+        filings = source.fetch_index(2023)
+        assert {f.doc_id: f for f in filings}["20032064"].bioguide_id == "S001222"
+
+    def test_post_service_late_ptr_of_departed_member_resolves(self, monkeypatch):
+        # McEachin died in office; his last term ended 2022-11-28. A PTR filed
+        # after that date resolves to him because the identity is unique and
+        # all of his service ended before the filing date.
+        xml = (
+            "<FinancialDisclosure>"
+            "<Member><Last>McEachin</Last><First>A. Donald</First><FilingType>P</FilingType>"
+            "<StateDst>VA04</StateDst><Year>2022</Year><FilingDate>12/5/2022</FilingDate>"
+            "<DocID>20032065</DocID></Member>"
+            "</FinancialDisclosure>"
+        )
+        self._mock_urlopen(monkeypatch, self._zip_with_xml(xml))
+        source = HouseClerkSource(members=_house_members())
+        filings = source.fetch_index(2022)
+        assert {f.doc_id: f for f in filings}["20032065"].bioguide_id == "M001200"
+
+    def test_post_service_fallback_rejects_ambiguous_identity(self, monkeypatch):
+        # A PTR dated during the vacancy between the two Donald Paynes (NJ)
+        # matches neither service interval; the unanchored fallback finds both
+        # father and son, so the adapter must not guess between them.
+        xml = (
+            "<FinancialDisclosure>"
+            "<Member><Last>Payne</Last><First>Donald</First><FilingType>P</FilingType>"
+            "<StateDst>NJ10</StateDst><Year>2012</Year><FilingDate>6/1/2012</FilingDate>"
+            "<DocID>20032066</DocID></Member>"
+            "</FinancialDisclosure>"
+        )
+        self._mock_urlopen(monkeypatch, self._zip_with_xml(xml))
+        source = HouseClerkSource(members=_house_members())
         with pytest.raises(HouseMemberResolveError):
-            source.fetch_index(2023)
+            source.fetch_index(2012)
+
+    def test_post_service_fallback_rejects_unknown_member(self, monkeypatch):
+        xml = (
+            "<FinancialDisclosure>"
+            "<Member><Last>Nofinger</Last><First>Zed</First><FilingType>P</FilingType>"
+            "<StateDst>AL04</StateDst><Year>2025</Year><FilingDate>9/10/2025</FilingDate>"
+            "<DocID>20032067</DocID></Member>"
+            "</FinancialDisclosure>"
+        )
+        self._mock_urlopen(monkeypatch, self._zip_with_xml(xml))
+        source = HouseClerkSource(members=_house_members())
+        with pytest.raises(HouseMemberResolveError):
+            source.fetch_index(2025)
+
+    def test_post_service_fallback_rejects_pre_service_filing(self, monkeypatch):
+        # Patronis served from his sworn-in date 2025-04-02. A PTR dated the
+        # day before is a pre-service filing: the unique identity matches, but
+        # his service had not ended before the filing date, so it fails closed.
+        xml = (
+            "<FinancialDisclosure>"
+            "<Member><Last>Patronis</Last><First>Jimmy</First><FilingType>P</FilingType>"
+            "<StateDst>FL01</StateDst><Year>2025</Year><FilingDate>4/1/2025</FilingDate>"
+            "<DocID>20032068</DocID></Member>"
+            "</FinancialDisclosure>"
+        )
+        self._mock_urlopen(monkeypatch, self._zip_with_xml(xml))
+        source = HouseClerkSource(members=_house_members())
+        with pytest.raises(HouseMemberResolveError):
+            source.fetch_index(2025)
 
     def test_ptr_without_usable_state_district_raises_index_error(self, monkeypatch):
         xml = (
