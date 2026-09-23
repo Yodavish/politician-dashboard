@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Callable
 
@@ -37,6 +37,7 @@ import psycopg
 
 from politician_dashboard.ingest.models import Filing, Transaction
 from politician_dashboard.ingest.parser import ScannedPdfError, parse_ptr_pdf
+from politician_dashboard.ingest.quality import transaction_date_anomalies
 from politician_dashboard.ingest.sources.base import DisclosureSource
 from politician_dashboard.ingest.sources.house_clerk import (
     HouseClerkSource,
@@ -357,11 +358,28 @@ def _run_year(
             logger.warning("parse failed for %s: %s", filing.doc_id, exc)
             continue
 
+        # Attach derived date-consistency flags (chamber-agnostic): the source
+        # dates are preserved verbatim, and any internally inconsistent dates
+        # are flagged alongside without altering what was parsed. The
+        # forward-dated check compares against the explicit run date
+        # (``started_at``) rather than an implicit "today", so the flags are
+        # reproducible for any given run.
+        transactions = [
+            replace(
+                tx,
+                quality_flags=tuple(
+                    transaction_date_anomalies(
+                        filing, tx, ingestion_date=started_at.date()
+                    )
+                ),
+            )
+            for tx in acquired.transactions
+        ]
         try:
             inserted = store(
                 conn,
                 filing=filing,
-                transactions=acquired.transactions,
+                transactions=transactions,
                 raw_pdf=acquired.raw_document,
                 pdf_url=acquired.document_url,
                 doc_kind=acquired.doc_kind,
@@ -375,7 +393,7 @@ def _run_year(
 
         if inserted:
             result.filings_new += 1
-            result.transactions_stored += len(acquired.transactions)
+            result.transactions_stored += len(transactions)
         else:
             result.filings_skipped += 1
 

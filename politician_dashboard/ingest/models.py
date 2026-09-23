@@ -41,3 +41,4 @@ class Transaction:
     filing_status: str | None = None
     ownership_source: str | None = None
     notes: str | None = None
+    quality_flags: tuple[str, ...] = ()

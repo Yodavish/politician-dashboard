@@ -65,6 +65,7 @@ class Transaction(BaseModel):
     ownership_source: str | None
     notes: str | None
     txn_source_id: str | None
+    quality_flags: list[str]
 
 
 class FilingDetail(FilingSummary):

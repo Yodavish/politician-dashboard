@@ -22,16 +22,25 @@ from politician_dashboard.ingest.models import Filing, Transaction
 
 AFTER_NOTIFICATION = "transaction_date_after_notification"
 AFTER_FILING = "transaction_date_after_filing"
+AFTER_INGESTION_DATE = "transaction_date_after_ingestion_date"
+NOTIFICATION_AFTER_FILING = "notification_date_after_filing"
 
 
 def transaction_date_anomalies(
-    filing: Filing, transaction: Transaction
+    filing: Filing, transaction: Transaction, ingestion_date: date
 ) -> list[str]:
     """Return the date-consistency violations for one transaction.
 
     A transaction may legitimately be reported some time after it occurred,
-    but it can never occur after its own notification date or after the
-    filing that discloses it. Returns an empty list for consistent records.
+    but it can never occur after its own notification date, after the filing
+    that discloses it, or after the date the filing was ingested. A
+    notification date that postdates the filing is likewise inconsistent.
+
+    ``ingestion_date`` is the explicit run/ingestion date owned by the
+    pipeline (never an implicit "today"), so the forward-dated check is
+    reproducible for any fixed run rather than drifting day to day.
+
+    Returns an empty list for consistent records.
     """
     violations: list[str] = []
     if transaction.txn_date > transaction.notification_date:
@@ -41,4 +50,11 @@ def transaction_date_anomalies(
         and transaction.txn_date > filing.filing_date
     ):
         violations.append(AFTER_FILING)
+    if transaction.txn_date > ingestion_date:
+        violations.append(AFTER_INGESTION_DATE)
+    if (
+        filing.filing_date is not None
+        and transaction.notification_date > filing.filing_date
+    ):
+        violations.append(NOTIFICATION_AFTER_FILING)
     return violations

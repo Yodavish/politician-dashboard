@@ -6,6 +6,7 @@ applies the migrations) and skip when no reachable ``DATABASE_URL`` is set.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 
 import psycopg
@@ -77,7 +78,8 @@ def _txn_rows(url: str, filing_id: int) -> list[tuple]:
         return conn.execute(
             "SELECT sequence, txn_source_id, owner_token, asset_name, ticker, "
             "txn_type, txn_date, notification_date, amount_min, amount_max, "
-            "amount_raw FROM transactions WHERE filing_id = %s ORDER BY sequence",
+            "amount_raw, quality_flags FROM transactions WHERE filing_id = %s "
+            "ORDER BY sequence",
             (filing_id,),
         ).fetchall()
 
@@ -125,6 +127,57 @@ class TestStoreFiling:
         assert seq1 == 1
         assert sid1 == "2000086356"
         assert ttype1 == "S (partial)"
+
+    def test_persists_quality_flags(self, temp_database_url: str):
+        tx = replace(
+            _transactions()[0],
+            quality_flags=(
+                "transaction_date_after_notification",
+                "transaction_date_after_filing",
+            ),
+        )
+        conn = psycopg.connect(temp_database_url)
+        assert store_filing(
+            conn,
+            filing=_filing(),
+            transactions=[tx],
+            raw_pdf=PDF_BYTES,
+            pdf_url="https://example.invalid/20032062.pdf",
+        ) is True
+        conn.close()
+
+        with psycopg.connect(temp_database_url) as conn:
+            filing_id = conn.execute(
+                "SELECT id FROM filings WHERE doc_id = %s", ("20032062",)
+            ).fetchone()[0]
+            row = conn.execute(
+                "SELECT quality_flags FROM transactions WHERE filing_id = %s",
+                (filing_id,),
+            ).fetchone()
+        assert row[0] == [
+            "transaction_date_after_notification",
+            "transaction_date_after_filing",
+        ]
+
+        # A transaction left at its default carries an empty flag array.
+        tx2 = replace(_transactions()[0], quality_flags=())
+        conn = psycopg.connect(temp_database_url)
+        assert store_filing(
+            conn,
+            filing=_filing(doc_id="20026537"),
+            transactions=[tx2],
+            raw_pdf=PDF_BYTES,
+            pdf_url="https://example.invalid/20026537.pdf",
+        ) is True
+        conn.close()
+
+        with psycopg.connect(temp_database_url) as conn:
+            row = conn.execute(
+                "SELECT quality_flags FROM transactions WHERE filing_id = "
+                "(SELECT id FROM filings WHERE doc_id = %s)",
+                ("20026537",),
+            ).fetchone()
+        assert row[0] == []
 
     def test_reingest_same_doc_id_is_skipped(self, temp_database_url: str):
         url = temp_database_url

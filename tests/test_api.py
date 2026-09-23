@@ -151,6 +151,17 @@ class TestTransactions:
                     "amount_min", "amount_max", "amount_raw", "owner"):
             assert key in first
         assert first["politician_id"] in {ADERHOLT_ID, PELOSI_ID}
+        assert first["quality_flags"] == []
+
+    def test_quality_flags_exposed(self, api_client):
+        resp = api_client.get("/transactions", params={"doc_id": "20032062"})
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        by_ticker = {t["ticker"]: t for t in items}
+        assert by_ticker["AAPL"]["quality_flags"] == [
+            "transaction_date_after_notification",
+        ]
+        assert by_ticker["GSK"]["quality_flags"] == []
 
     def test_filter_politician(self, api_client):
         resp = api_client.get("/transactions", params={"politician_id": PELOSI_ID})

@@ -126,6 +126,9 @@ def seed_api_data(url: str) -> None:
                 txn_date=date(2025, 7, 20), notification_date=date(2025, 8, 1),
                 amount_min=15001, amount_max=50000,
                 amount_raw="$15,001 - $50,000",
+                # Simulates a runner-produced derived flag so the API can be
+                # verified to expose a non-empty quality_flags list.
+                quality_flags=("transaction_date_after_notification",),
             ),
         ],
     )

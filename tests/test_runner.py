@@ -14,6 +14,12 @@ import pytest
 
 from politician_dashboard.ingest.models import Filing, Transaction
 from politician_dashboard.ingest.parser import ParseError, ScannedPdfError
+from politician_dashboard.ingest.quality import (
+    AFTER_FILING,
+    AFTER_INGESTION_DATE,
+    AFTER_NOTIFICATION,
+    NOTIFICATION_AFTER_FILING,
+)
 from politician_dashboard.ingest.runner import (
     IngestionResult,
     _to_transactions,
@@ -137,7 +143,9 @@ class _Harness:
     def finish_run(self, conn, run_id, status, result) -> None:
         self.finished.append((run_id, status, result))
 
-    def execute(self, year: int = 2025) -> IngestionResult:
+    def execute(
+        self, year: int = 2025, now: datetime | None = None
+    ) -> IngestionResult:
         self.result = run_ingestion(
             year=year,
             conn=self.connector(),
@@ -148,7 +156,7 @@ class _Harness:
             filing_exists=self.filing_exists,
             create_run=self.create_run,
             finish_run=self.finish_run,
-            now=datetime(2025, 9, 1, tzinfo=timezone.utc),
+            now=now or datetime(2025, 9, 1, tzinfo=timezone.utc),
         )
         return self.result
 
@@ -185,9 +193,98 @@ class TestRunIngestion:
         assert tx.txn_type == "S"
         assert tx.amount_min == 1001
         assert tx.amount_max == 15000
+        # Normal dates (txn before notification before filing) are not flagged
+        assert tx.quality_flags == ()
 
         # Run accounting persisted
         assert h.finished == [(7, "success", result)]
+
+    def test_anomalous_transaction_carries_quality_flags(self) -> None:
+        # Official House filing 20033889 (Steve Cohen, TN09): the published
+        # dates state a transaction (2026-12-26) after its own notification
+        # (2026-01-21), after the signed filing (2026-02-09), and after the
+        # ingestion date of the run (2026-02-09) that stored it. The source
+        # dates are preserved verbatim and every violation is flagged by the
+        # shared quality rules -- no member-specific logic.
+        filing = Filing(
+            prefix="Hon.",
+            last="Cohen",
+            first="Steve",
+            suffix="",
+            filing_type="P",
+            state_district="TN09",
+            year=2026,
+            filing_date=date(2026, 2, 9),
+            doc_id="20033889",
+        )
+        h = _harness(filings=[filing])
+        h.parser_impl = lambda pdf: {
+            "filing_id": "20033889",
+            "transactions": [
+                {
+                    "asset_name": "Sony Group Corporation ADR (SONY)",
+                    "txn_type": "P",
+                    "txn_date": date(2026, 12, 26),
+                    "notification_date": date(2026, 1, 21),
+                    "amount_min": 1001,
+                    "amount_max": 15000,
+                    "amount_raw": "$1,001 - $15,000",
+                }
+            ],
+        }
+        result = h.execute(
+            year=2026, now=datetime(2026, 2, 9, tzinfo=timezone.utc)
+        )
+        assert result.status == "success"
+        stored = h.stored[0]
+        (tx,) = stored["transactions"]
+        # Source transaction date preserved exactly
+        assert tx.txn_date == date(2026, 12, 26)
+        assert tx.notification_date == date(2026, 1, 21)
+        assert tx.quality_flags == (
+            AFTER_NOTIFICATION,
+            AFTER_FILING,
+            AFTER_INGESTION_DATE,
+        )
+
+    def test_notification_after_filing_carries_quality_flag(self) -> None:
+        # Official House filing 20018054 (James Comer, KY01): txn 2024-12-31
+        # precedes its 2025-01-31 notification, but the notification postdates
+        # the filing (filed 2025-01-10). Only the notification-vs-filing
+        # violation applies; the source dates are preserved exactly.
+        filing = Filing(
+            prefix="Hon.",
+            last="Comer",
+            first="James",
+            suffix="",
+            filing_type="P",
+            state_district="KY01",
+            year=2025,
+            filing_date=date(2025, 1, 10),
+            doc_id="20018054",
+        )
+        h = _harness(filings=[filing])
+        h.parser_impl = lambda pdf: {
+            "filing_id": "20018054",
+            "transactions": [
+                {
+                    "asset_name": "Southwest Airlines Co (LUV)",
+                    "txn_type": "S",
+                    "txn_date": date(2024, 12, 31),
+                    "notification_date": date(2025, 1, 31),
+                    "amount_min": 1001,
+                    "amount_max": 15000,
+                    "amount_raw": "$1,001 - $15,000",
+                }
+            ],
+        }
+        result = h.execute(year=2025)
+        assert result.status == "success"
+        stored = h.stored[0]
+        (tx,) = stored["transactions"]
+        assert tx.txn_date == date(2024, 12, 31)
+        assert tx.notification_date == date(2025, 1, 31)
+        assert tx.quality_flags == (NOTIFICATION_AFTER_FILING,)
 
     def test_scanned_filings_skipped_without_download(self) -> None:
         # A 7-digit DocID is classified as scanned (paper).

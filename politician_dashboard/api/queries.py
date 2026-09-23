@@ -103,7 +103,7 @@ def list_transactions(
                t.asset_type_code, t.txn_type, t.txn_date, t.notification_date,
                t.amount_min, t.amount_max, t.amount_raw, t.owner_token,
                t.filing_status, t.ownership_source, t.notes, t.txn_source_id,
-               f.first_name, f.last_name, f.state_district
+               f.first_name, f.last_name, f.state_district, t.quality_flags
         FROM {base_from}
         {f'WHERE {" AND ".join(clauses)}' if clauses else ''}
         ORDER BY {column} {order}, t.id
@@ -135,7 +135,7 @@ def list_filing_transactions(conn, filing_id: int):
                t.asset_type_code, t.txn_type, t.txn_date, t.notification_date,
                t.amount_min, t.amount_max, t.amount_raw, t.owner_token,
                t.filing_status, t.ownership_source, t.notes, t.txn_source_id,
-               f.first_name, f.last_name, f.state_district
+               f.first_name, f.last_name, f.state_district, t.quality_flags
         FROM transactions t JOIN filings f ON f.id = t.filing_id
         WHERE t.filing_id = %s
         ORDER BY t.sequence

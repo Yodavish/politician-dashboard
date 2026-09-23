@@ -35,7 +35,7 @@ def transaction_dict(row) -> dict:
         id_, filing_id, doc_id, sequence, asset_name, ticker, asset_type_code,
         txn_type, txn_date, notification_date, amount_min, amount_max,
         amount_raw, owner_token, filing_status, ownership_source, notes,
-        txn_source_id, first_name, last_name, state_district,
+        txn_source_id, first_name, last_name, state_district, quality_flags,
     ) = row
     return {
         "id": id_,
@@ -57,6 +57,7 @@ def transaction_dict(row) -> dict:
         "ownership_source": ownership_source,
         "notes": notes,
         "txn_source_id": txn_source_id,
+        "quality_flags": list(quality_flags),
     }
 
 
