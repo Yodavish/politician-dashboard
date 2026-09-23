@@ -19,6 +19,7 @@ class Filing:
     year: int
     filing_date: date | None
     doc_id: str
+    bioguide_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

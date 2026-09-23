@@ -1,0 +1,297 @@
+{
+  "source": "unitedstates/congress-legislators (legislators-current.json + legislators-historical.json)",
+  "coverage_start": "2000-01-01",
+  "members": [
+    {
+      "bioguide_id": "A000055",
+      "last_name": "Aderholt",
+      "first_name": "Robert",
+      "state": "AL",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2011-01-03",
+          "district": 4
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2023-01-03",
+          "district": 4
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2027-01-03",
+          "district": 4
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001165",
+      "last_name": "McCarthy",
+      "first_name": "Kevin",
+      "state": "CA",
+      "terms": [
+        {
+          "start": "2007-01-04",
+          "end": "2009-01-03",
+          "district": 22
+        },
+        {
+          "start": "2009-01-06",
+          "end": "2011-01-03",
+          "district": 22
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2013-01-03",
+          "district": 22
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2015-01-03",
+          "district": 23
+        },
+        {
+          "start": "2015-01-06",
+          "end": "2017-01-03",
+          "district": 23
+        },
+        {
+          "start": "2017-01-03",
+          "end": "2019-01-03",
+          "district": 23
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2021-01-03",
+          "district": 23
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2023-01-03",
+          "district": 23
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2023-12-31",
+          "district": 20
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001222",
+      "last_name": "Santos",
+      "first_name": "George",
+      "state": "NY",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2023-12-01",
+          "district": 3
+        }
+      ]
+    },
+    {
+      "bioguide_id": "P000622",
+      "last_name": "Patronis",
+      "first_name": "Jimmy",
+      "state": "FL",
+      "terms": [
+        {
+          "start": "2025-04-02",
+          "end": "2027-01-03",
+          "district": 1
+        }
+      ]
+    },
+    {
+      "bioguide_id": "P000149",
+      "last_name": "Payne",
+      "first_name": "Donald",
+      "state": "NJ",
+      "terms": [
+        {
+          "start": "2009-01-06",
+          "end": "2011-01-03",
+          "district": 10
+        },
+        {
+          "start": "2011-01-05",
+          "end": "2012-03-06",
+          "district": 10
+        }
+      ]
+    },
+    {
+      "bioguide_id": "P000604",
+      "last_name": "Payne",
+      "first_name": "Donald",
+      "state": "NJ",
+      "terms": [
+        {
+          "start": "2013-01-03",
+          "end": "2015-01-03",
+          "district": 10
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2024-04-24",
+          "district": 10
+        }
+      ]
+    },
+    {
+      "bioguide_id": "R000600",
+      "last_name": "Radewagen",
+      "first_name": "Aumua Amata",
+      "state": "AS",
+      "terms": [
+        {
+          "start": "2015-01-06",
+          "end": "2017-01-03",
+          "district": 0
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2027-01-03",
+          "district": 0
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001200",
+      "last_name": "McEachin",
+      "first_name": "A.",
+      "given_name": "A. Donald",
+      "state": "VA",
+      "terms": [
+        {
+          "start": "2021-01-03",
+          "end": "2022-11-28",
+          "district": 4
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001214",
+      "last_name": "Steube",
+      "first_name": "W.",
+      "given_name": "W. Gregory",
+      "state": "FL",
+      "terms": [
+        {
+          "start": "2019-01-03",
+          "end": "2021-01-03",
+          "district": 17
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2023-01-03",
+          "district": 17
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2025-01-03",
+          "district": 17
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2027-01-03",
+          "district": 17
+        }
+      ]
+    },
+    {
+      "bioguide_id": "K000389",
+      "last_name": "Khanna",
+      "first_name": "Ro",
+      "given_name": "Ro",
+      "state": "CA",
+      "terms": [
+        {
+          "start": "2017-01-03",
+          "end": "2019-01-03",
+          "district": 17
+        },
+        {
+          "start": "2019-01-03",
+          "end": "2021-01-03",
+          "district": 17
+        },
+        {
+          "start": "2021-01-03",
+          "end": "2023-01-03",
+          "district": 17
+        },
+        {
+          "start": "2023-01-03",
+          "end": "2025-01-03",
+          "district": 17
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2027-01-03",
+          "district": 17
+        }
+      ]
+    },
+    {
+      "bioguide_id": "M001232",
+      "last_name": "McClain Delaney",
+      "first_name": "April",
+      "given_name": "April",
+      "last_name_alt": "Delaney",
+      "state": "MD",
+      "terms": [
+        {
+          "start": "2025-01-03",
+          "end": "2027-01-03",
+          "district": 6
+        }
+      ]
+    },
+    {
+      "bioguide_id": "H001094",
+      "last_name": "Hoyle",
+      "first_name": "Valerie",
+      "given_name": "Val T.",
+      "state": "OR",
+      "terms": [
+        {
+          "start": "2023-01-03",
+          "end": "2025-01-03",
+          "district": 4
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2027-01-03",
+          "district": 4
+        }
+      ]
+    },
+    {
+      "bioguide_id": "S001156",
+      "last_name": "Sánchez",
+      "first_name": "Linda",
+      "given_name": "Linda T.",
+      "state": "CA",
+      "terms": [
+        {
+          "start": "2003-01-07",
+          "end": "2005-01-03",
+          "district": 39
+        },
+        {
+          "start": "2013-01-03",
+          "end": "2015-01-03",
+          "district": 38
+        },
+        {
+          "start": "2025-01-03",
+          "end": "2027-01-03",
+          "district": 38
+        }
+      ]
+    }
+  ]
+}
