@@ -8,10 +8,6 @@ The project also serves as a practical exploration of modern software engineerin
 
 [Congress Trade Tracker](http://52.207.143.200/transactions) — currently served from the temporary EC2 instance's public IP. Custom domain and HTTPS are planned for a later milestone.
 
-## Demo
-
-https://github.com/user-attachments/assets/dab255d5-7eee-4e2a-a5af-341e3e981bb1
-
 ## Key Features
 
 - House and Senate PTR disclosure ingestion and parsing
