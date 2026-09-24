@@ -13,11 +13,12 @@ on:
   push:
     branches: [main]
 
-# id-token: write is required to mint the OIDC token the runner exchanges for
-# AWS credentials. No GITHUB_TOKEN permission is granted; the deployment
-# performs no repository actions.
+# id-token: write is required for OIDC, and contents: read is required to
+# check out source for the container builds. No other repository permissions
+# are granted.
 permissions:
   id-token: write
+  contents: read
 
 # Only one production deployment at a time; newer pushes queue behind the
 # in-flight deployment instead of cancelling it.
@@ -33,6 +34,9 @@ jobs:
       AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
       EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
     steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
       - name: Assume AWS CD role via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -48,6 +52,29 @@ jobs:
           : "${AWS_ROLE_TO_ASSUME:?missing secret: AWS_ROLE_TO_ASSUME}"
           : "${EC2_INSTANCE_ID:?missing secret: EC2_INSTANCE_ID}"
           aws sts get-caller-identity
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/politician-dashboard-api:${{ github.sha }}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dashboard
+          file: ./dashboard/Dockerfile
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/politician-dashboard-web:${{ github.sha }}
 
       - name: Send deployment command to EC2 via SSM
         id: send-command
