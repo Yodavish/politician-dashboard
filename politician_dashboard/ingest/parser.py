@@ -220,9 +220,22 @@ def parse_transactions(text: str) -> list[dict[str, object]]:
     if start_idx is None:
         return []
 
-    # Reconstruct each transaction as a single line of text
-    entries: list[str] = []
+    # Reconstruct each transaction as a single line of text, keeping the
+    # per-transaction "Filing Status" (``F S:``) annotation. The annotation
+    # is source evidence (``New`` / ``Amended``) for that transaction; it is
+    # never used to infer which prior filing is being amended, only preserved
+    # separately from the curated ``amends_filing_id`` relationship.
+    entries: list[tuple[str, str | None]] = []
     current: list[str] = []
+    current_filing_status: str | None = None
+
+    def finish_current() -> None:
+        nonlocal current, current_filing_status
+        if current:
+            entries.append((" ".join(current), current_filing_status))
+        current = []
+        current_filing_status = None
+
     for line in lines[start_idx + 1 :]:
         stripped = line.strip()
         if not stripped:
@@ -242,10 +255,16 @@ def parse_transactions(text: str) -> list[dict[str, object]]:
         if "ID Owner Asset" in stripped and "Transaction" in stripped:
             continue
 
-        # Per-transaction metadata lines: skip, they delimit records
-        if stripped.startswith("F S:") or stripped.startswith("S O:"):
+        # Per-transaction metadata lines: delimit records and annotate them.
+        # ``F S:`` records the filing status of the transaction it follows;
+        # the other prefixes carry no date-relevant content and are skipped.
+        if stripped.startswith("F S:"):
+            if current:
+                # This metadata line belongs to the transaction block that
+                # precedes it. Keep the source spelling/case verbatim.
+                current_filing_status = stripped[len("F S:") :].strip() or None
             continue
-        if stripped.startswith("D :") or stripped.startswith("C :"):
+        if stripped.startswith("S O:") or stripped.startswith("D :") or stripped.startswith("C :"):
             continue
 
         # Join amount continuation lines ($...) to the current entry
@@ -255,21 +274,22 @@ def parse_transactions(text: str) -> list[dict[str, object]]:
 
         if _is_transaction_start(stripped):
             if current:
-                entries.append(" ".join(current))
+                finish_current()
             current = [stripped]
         elif current:
             # Multi-line asset name continuation
             current.append(stripped)
-    if current:
-        entries.append(" ".join(current))
+    finish_current()
 
     # Parse each reconstituted transaction
     results: list[dict[str, object]] = []
-    for entry in entries:
+    for entry, filing_status in entries:
         try:
-            results.append(_parse_one_transaction(entry))
+            parsed = _parse_one_transaction(entry)
         except ParseError:
             continue
+        parsed["filing_status"] = filing_status
+        results.append(parsed)
 
     return results
 

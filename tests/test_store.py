@@ -46,6 +46,7 @@ def _transactions() -> list[Transaction]:
             owner_token="SP",
             ticker="GSK",
             asset_type_code="ST",
+            filing_status="Amended",
         ),
         Transaction(
             sequence=1,
@@ -78,7 +79,7 @@ def _txn_rows(url: str, filing_id: int) -> list[tuple]:
         return conn.execute(
             "SELECT sequence, txn_source_id, owner_token, asset_name, ticker, "
             "txn_type, txn_date, notification_date, amount_min, amount_max, "
-            "amount_raw, quality_flags FROM transactions WHERE filing_id = %s "
+            "amount_raw, quality_flags, filing_status FROM transactions WHERE filing_id = %s "
             "ORDER BY sequence",
             (filing_id,),
         ).fetchall()
@@ -109,7 +110,7 @@ class TestStoreFiling:
         txns = _txn_rows(temp_database_url, filing_id)
         assert len(txns) == 2
 
-        seq0, sid0, owner0, asset0, ticker0, ttype0, tdate0, ndate0, amin0, amax0, araw0, flags0 = txns[0]
+        seq0, sid0, owner0, asset0, ticker0, ttype0, tdate0, ndate0, amin0, amax0, araw0, flags0, status0 = txns[0]
         assert seq0 == 0
         assert sid0 is None
         assert owner0 == "SP"
@@ -123,13 +124,54 @@ class TestStoreFiling:
         assert araw0 == "$1,001 - $15,000"
         # Normal dates (txn before notification before filing) carry no flags
         assert flags0 == []
+        assert status0 == "Amended"
 
         # Preserve "(partial)" suffix and source_id on the second transaction
-        seq1, sid1, _owner1, _asset1, _ticker1, ttype1, _td1, _nd1, _amin1, _amax1, _araw1, flags1 = txns[1]
+        seq1, sid1, _owner1, _asset1, _ticker1, ttype1, _td1, _nd1, _amin1, _amax1, _araw1, flags1, status1 = txns[1]
         assert seq1 == 1
         assert sid1 == "2000086356"
         assert ttype1 == "S (partial)"
         assert flags1 == []
+        assert status1 is None
+
+    def test_reingest_cannot_overwrite_curated_values(self, temp_database_url: str):
+        url = temp_database_url
+        filing = _filing()
+        first_tx = replace(
+            _transactions()[0],
+            quality_flags=("source_flag",),
+            filing_status="Amended",
+        )
+        with psycopg.connect(url, autocommit=True) as conn:
+            assert store_filing(
+                conn, filing=filing, transactions=[first_tx], raw_pdf=PDF_BYTES,
+                pdf_url="https://example.invalid/20032062.pdf",
+            ) is True
+            conn.execute(
+                "UPDATE transactions SET verified_transaction_date = %s, "
+                "verification_method = 'manual_review', "
+                "verification_confidence = 'high', "
+                "verification_source_doc_id = 'not-ingested', "
+                "verification_note = 'curated', verified_at = now() "
+                "WHERE filing_id = (SELECT id FROM filings WHERE doc_id = %s)",
+                (date(2025, 7, 1), filing.doc_id),
+            )
+            changed_tx = replace(first_tx, txn_date=date(2020, 1, 1), quality_flags=())
+            assert store_filing(
+                conn, filing=filing, transactions=[changed_tx], raw_pdf=PDF_BYTES,
+                pdf_url="https://example.invalid/20032062.pdf",
+            ) is False
+            row = conn.execute(
+                "SELECT txn_date, notification_date, quality_flags, filing_status, "
+                "verified_transaction_date, verification_method, "
+                "verification_source_doc_id, verification_note FROM transactions "
+                "WHERE filing_id = (SELECT id FROM filings WHERE doc_id = %s)",
+                (filing.doc_id,),
+            ).fetchone()
+        assert row == (
+            date(2025, 7, 28), date(2025, 8, 11), ["source_flag"], "Amended",
+            date(2025, 7, 1), "manual_review", "not-ingested", "curated",
+        )
 
     def test_persists_quality_flags(self, temp_database_url: str):
         tx = replace(

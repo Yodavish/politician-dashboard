@@ -24,6 +24,18 @@ export interface FilingSummary {
   transaction_count: number;
 }
 
+export interface AmendmentFiling {
+  doc_id: string;
+  name: string;
+  filing_date: string | null;
+  pdf_url: string;
+  amends_doc_id: string | null;
+  amendment_method: string | null;
+  amendment_confidence: string | null;
+  amendment_note: string | null;
+  amendment_verified_at: string | null;
+}
+
 export interface Transaction {
   id: number;
   filing_id: number;
@@ -47,9 +59,22 @@ export interface Transaction {
   notes: string | null;
   txn_source_id: string | null;
   quality_flags: string[];
+  verified_transaction_date: string | null;
+  verification_method: string | null;
+  verification_confidence: string | null;
+  verification_source_doc_id: string | null;
+  verification_note: string | null;
+  verified_at: string | null;
+  verification_source_doc_exists: boolean;
 }
 
 export interface FilingDetail extends FilingSummary {
+  amends_doc_id: string | null;
+  amendment_method: string | null;
+  amendment_confidence: string | null;
+  amendment_note: string | null;
+  amendment_verified_at: string | null;
+  amendments: AmendmentFiling[];
   transactions: Transaction[];
 }
 

@@ -6,7 +6,7 @@ import {
   fetchPoliticianFilings,
   fetchPoliticianTransactions,
 } from "@/api/client";
-import type { FilingDetail, Politician, Transaction } from "@/api/types";
+import type { FilingSummary, Politician, Transaction } from "@/api/types";
 import { Empty, ErrorMessage, Loading } from "@/components/State";
 import TransactionDate from "@/components/TransactionDate";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,7 @@ export default function PoliticianProfilePage() {
   const tab = searchParams.get("tab") ?? "transactions";
 
   const [pol, setPol] = useState<Politician | null>(null);
-  const [filings, setFilings] = useState<FilingDetail[]>([]);
+  const [filings, setFilings] = useState<FilingSummary[]>([]);
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -202,6 +202,7 @@ function TransactionsTab({
                       txnDate={t.txn_date}
                       flags={t.quality_flags}
                       filingDate={t.filing_date}
+                      verifiedDate={t.verified_transaction_date}
                     />
                   </TableCell>
                   <TableCell>
@@ -259,7 +260,7 @@ function ProfileSelect({
   );
 }
 
-function FilingsTab({ filings }: { filings: FilingDetail[] }) {
+function FilingsTab({ filings }: { filings: FilingSummary[] }) {
   if (filings.length === 0) return <Empty message="No filings." />;
   return (
     <div className="rounded-lg border">

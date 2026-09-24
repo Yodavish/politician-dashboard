@@ -183,6 +183,7 @@ def _to_transactions(parsed: dict) -> list[Transaction]:
                 ticker=item.get("ticker"),
                 asset_type_code=item.get("asset_type_code"),
                 notes=item.get("notes"),
+                filing_status=item.get("filing_status"),
             )
         )
     return transactions

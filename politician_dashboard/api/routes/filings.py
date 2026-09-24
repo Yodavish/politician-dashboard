@@ -64,4 +64,8 @@ def filing_detail(doc_id: str, conn: Conn) -> FilingDetail:
     detail = serializers.filing_dict(row)
     txs = queries.list_filing_transactions(conn, row[0])
     detail["transactions"] = [serializers.transaction_dict(t) for t in txs]
+    amendments = queries.list_filing_amendments(conn, row[0])
+    detail["amendments"] = [
+        serializers.filing_relationship_dict(f) for f in amendments
+    ]
     return FilingDetail.model_validate(detail)

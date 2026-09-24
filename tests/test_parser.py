@@ -182,6 +182,38 @@ class TestParseAmountBounds:
 
 
 class TestParseTransactions:
+    def test_filing_status_is_attached_to_its_source_block(self) -> None:
+        pdf_bytes = (FIXTURES / "2023" / "20023082.pdf").read_bytes()
+        result = parse_ptr_pdf(pdf_bytes)
+        assert result["transactions"][0]["filing_status"] == "Amended"
+        assert result["transactions"][1]["filing_status"] == "New"
+
+    def test_missing_filing_status_is_none(self) -> None:
+        text = (
+            "ID Owner Asset Transaction Date Notification Amount Cap.\n"
+            "Type Date Gains >\n$200?\n"
+            "Example Inc (EX) [ST] P 01/01/2025 01/02/2025 $1,001 - $15,000\n"
+            "F S: New\n"
+            "Another Inc (AN) [ST] P 02/01/2025 02/02/2025 $1,001 - $15,000\n"
+        )
+        txns = parse_transactions(text)
+        assert [t["filing_status"] for t in txns] == ["New", None]
+
+    def test_malformed_block_does_not_shift_filing_status(self) -> None:
+        text = (
+            "ID Owner Asset Transaction Date Notification Amount Cap.\n"
+            "Type Date Gains >\n$200?\n"
+            "Example Inc (EX) [ST] P 01/01/2025 01/02/2025 $1,001 - $15,000\n"
+            "F S: New\n"
+            "Unparseable block P 02/01/2025 02/02/2025 $1,001 - $15,000\n"
+            "F S: Deleted\n"
+            "Last Inc (LAST) [ST] P 03/01/2025 03/02/2025 $1,001 - $15,000\n"
+            "F S: Amended\n"
+        )
+        txns = parse_transactions(text)
+        assert [t["ticker"] for t in txns] == ["EX", "LAST"]
+        assert [t["filing_status"] for t in txns] == ["New", "Amended"]
+
     def test_single_simple_transaction(self) -> None:
         text = (
             "Filing ID #00000001\n"

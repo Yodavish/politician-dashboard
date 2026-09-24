@@ -57,6 +57,9 @@ export default function FilingDetailPage() {
     { label: "Year", value: String(filing.year) },
     { label: "Filing date", value: formatDate(filing.filing_date) },
     { label: "Kind", value: filing.doc_kind },
+    ...(filing.amends_doc_id
+      ? [{ label: "Amendment of", value: filing.amends_doc_id }]
+      : []),
   ];
 
   return (
@@ -102,8 +105,58 @@ export default function FilingDetailPage() {
               </dd>
             </div>
           </dl>
+          {filing.amends_doc_id && (
+            <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 border-t pt-4 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-muted-foreground">Amendment method</dt>
+                <dd>{filing.amendment_method ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Amendment confidence</dt>
+                <dd>{filing.amendment_confidence ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Amendment note</dt>
+                <dd>{filing.amendment_note ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Amendment curated at</dt>
+                <dd>{filing.amendment_verified_at ?? "—"}</dd>
+              </div>
+            </dl>
+          )}
         </CardContent>
       </Card>
+
+      {filing.amendments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Amendments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm">
+              {filing.amendments.map((amendment) => (
+                <li key={amendment.doc_id}>
+                  <Link
+                    to={`/filings/${amendment.doc_id}`}
+                    className="text-primary hover:underline"
+                  >
+                    {amendment.doc_id}
+                  </Link>
+                  {amendment.amendment_method && (
+                    <span className="text-muted-foreground">
+                      {" "}— {amendment.amendment_method} / {amendment.amendment_confidence}
+                    </span>
+                  )}
+                  {amendment.amendment_note && (
+                    <p className="text-muted-foreground mt-0.5">{amendment.amendment_note}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <h2 className="text-xl font-semibold tracking-tight">
         Transactions ({filing.transactions.length})
@@ -129,6 +182,7 @@ export default function FilingDetailPage() {
                     txnDate={t.txn_date}
                     flags={t.quality_flags}
                     filingDate={filing.filing_date}
+                    verifiedDate={t.verified_transaction_date}
                   />
                 </TableCell>
                 <TableCell>
@@ -152,6 +206,62 @@ export default function FilingDetailPage() {
           </TableBody>
         </Table>
       </div>
+
+      {filing.transactions.some((t) => t.verified_transaction_date) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Verification details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {filing.transactions
+              .filter((t) => t.verified_transaction_date)
+              .map((t) => (
+                <dl
+                  key={t.id}
+                  className="grid grid-cols-1 gap-x-6 gap-y-2 border-b pb-4 text-sm last:border-0 last:pb-0 sm:grid-cols-2"
+                >
+                  <div>
+                    <dt className="text-muted-foreground">Transaction</dt>
+                    <dd>{t.asset_name}{t.ticker ? ` (${t.ticker})` : ""}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Verified date</dt>
+                    <dd>{t.verified_transaction_date}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Method</dt>
+                    <dd>{t.verification_method ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Confidence</dt>
+                    <dd>{t.verification_confidence ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Source document</dt>
+                    <dd>
+                      {t.verification_source_doc_id && t.verification_source_doc_exists ? (
+                        <Link
+                          to={`/filings/${t.verification_source_doc_id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {t.verification_source_doc_id}
+                        </Link>
+                      ) : t.verification_source_doc_id ?? "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Note</dt>
+                    <dd>{t.verification_note ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Verified at</dt>
+                    <dd>{t.verified_at ?? "—"}</dd>
+                  </div>
+                </dl>
+              ))}
+          </CardContent>
+        </Card>
+      )}
     </section>
   );
 }

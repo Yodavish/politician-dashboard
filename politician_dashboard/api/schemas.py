@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T")
 
@@ -43,6 +43,18 @@ class FilingSummary(BaseModel):
     transaction_count: int
 
 
+class AmendmentFiling(BaseModel):
+    doc_id: str
+    name: str
+    filing_date: date | None
+    pdf_url: str
+    amends_doc_id: str | None = None
+    amendment_method: str | None = None
+    amendment_confidence: str | None = None
+    amendment_note: str | None = None
+    amendment_verified_at: datetime | None = None
+
+
 class Transaction(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -68,9 +80,22 @@ class Transaction(BaseModel):
     notes: str | None
     txn_source_id: str | None
     quality_flags: list[str]
+    verified_transaction_date: date | None = None
+    verification_method: str | None = None
+    verification_confidence: str | None = None
+    verification_source_doc_id: str | None = None
+    verification_note: str | None = None
+    verified_at: datetime | None = None
+    verification_source_doc_exists: bool = False
 
 
 class FilingDetail(FilingSummary):
+    amends_doc_id: str | None = None
+    amendment_method: str | None = None
+    amendment_confidence: str | None = None
+    amendment_note: str | None = None
+    amendment_verified_at: datetime | None = None
+    amendments: list[AmendmentFiling] = Field(default_factory=list)
     transactions: list[Transaction]
 
 

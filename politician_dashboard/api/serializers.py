@@ -14,8 +14,8 @@ def filing_dict(row) -> dict:
         _id, doc_id, year, prefix, first_name, last_name, suffix,
         state_district, filing_date, doc_kind, pdf_url, downloaded_at,
         created_at, transaction_count,
-    ) = row
-    return {
+    ) = row[:14]
+    result = {
         "doc_id": doc_id,
         "year": year,
         "name": " ".join(part for part in (prefix, first_name, last_name, suffix)
@@ -28,6 +28,15 @@ def filing_dict(row) -> dict:
         "created_at": created_at,
         "transaction_count": int(transaction_count),
     }
+    if len(row) >= 19:
+        result.update({
+            "amends_doc_id": row[14],
+            "amendment_method": row[15],
+            "amendment_confidence": row[16],
+            "amendment_note": row[17],
+            "amendment_verified_at": row[18],
+        })
+    return result
 
 
 def transaction_dict(row) -> dict:
@@ -36,7 +45,9 @@ def transaction_dict(row) -> dict:
         asset_type_code, txn_type, txn_date, notification_date, amount_min,
         amount_max, amount_raw, owner_token, filing_status, ownership_source,
         notes, txn_source_id, first_name, last_name, state_district,
-        quality_flags,
+        quality_flags, verified_transaction_date, verification_method,
+        verification_confidence, verification_source_doc_id,
+        verification_note, verified_at, verification_source_doc_exists,
     ) = row
     return {
         "id": id_,
@@ -61,7 +72,23 @@ def transaction_dict(row) -> dict:
         "notes": notes,
         "txn_source_id": txn_source_id,
         "quality_flags": list(quality_flags),
+        "verified_transaction_date": verified_transaction_date,
+        "verification_method": verification_method,
+        "verification_confidence": verification_confidence,
+        "verification_source_doc_id": verification_source_doc_id,
+        "verification_note": verification_note,
+        "verified_at": verified_at,
+        "verification_source_doc_exists": verification_source_doc_exists,
     }
+
+
+def filing_relationship_dict(row) -> dict:
+    detail = filing_dict(row)
+    return {key: detail[key] for key in (
+        "doc_id", "name", "filing_date", "pdf_url", "amends_doc_id",
+        "amendment_method", "amendment_confidence", "amendment_note",
+        "amendment_verified_at",
+    )}
 
 
 def politician_dict(row) -> dict:

@@ -104,7 +104,13 @@ def list_transactions(
                t.txn_date, t.notification_date, t.amount_min, t.amount_max,
                t.amount_raw, t.owner_token, t.filing_status, t.ownership_source,
                t.notes, t.txn_source_id,
-               f.first_name, f.last_name, f.state_district, t.quality_flags
+               f.first_name, f.last_name, f.state_district, t.quality_flags,
+               t.verified_transaction_date, t.verification_method,
+               t.verification_confidence, t.verification_source_doc_id,
+               t.verification_note, t.verified_at,
+               EXISTS (SELECT 1 FROM filings vf
+                       WHERE vf.doc_id = t.verification_source_doc_id)
+                   AS verification_source_doc_exists
         FROM {base_from}
         {f'WHERE {" AND ".join(clauses)}' if clauses else ''}
         ORDER BY {column} {order}, t.id
@@ -122,7 +128,11 @@ def get_filing(conn, doc_id: str):
                f.suffix, f.state_district, f.filing_date, f.doc_kind, f.pdf_url,
                f.downloaded_at, f.created_at,
                (SELECT count(*) FROM transactions t WHERE t.filing_id = f.id)
-                   AS transaction_count
+                   AS transaction_count,
+               (SELECT o.doc_id FROM filings o WHERE o.id = f.amends_filing_id)
+                   AS amends_doc_id,
+               f.amendment_method, f.amendment_confidence, f.amendment_note,
+               f.amendment_verified_at
         FROM filings f WHERE f.doc_id = %s
         """,
         (doc_id,),
@@ -137,10 +147,37 @@ def list_filing_transactions(conn, filing_id: int):
                t.txn_date, t.notification_date, t.amount_min, t.amount_max,
                t.amount_raw, t.owner_token, t.filing_status, t.ownership_source,
                t.notes, t.txn_source_id,
-               f.first_name, f.last_name, f.state_district, t.quality_flags
+               f.first_name, f.last_name, f.state_district, t.quality_flags,
+               t.verified_transaction_date, t.verification_method,
+               t.verification_confidence, t.verification_source_doc_id,
+               t.verification_note, t.verified_at,
+               EXISTS (SELECT 1 FROM filings vf
+                       WHERE vf.doc_id = t.verification_source_doc_id)
+                   AS verification_source_doc_exists
         FROM transactions t JOIN filings f ON f.id = t.filing_id
         WHERE t.filing_id = %s
         ORDER BY t.sequence
+        """,
+        (filing_id,),
+    ).fetchall()
+
+
+def list_filing_amendments(conn, filing_id: int):
+    """Return the filings that were curated as amendments of ``filing_id``."""
+    return conn.execute(
+        """
+        SELECT f.id, f.doc_id, f.year, f.prefix, f.first_name, f.last_name,
+               f.suffix, f.state_district, f.filing_date, f.doc_kind, f.pdf_url,
+               f.downloaded_at, f.created_at,
+               (SELECT count(*) FROM transactions t WHERE t.filing_id = f.id)
+                   AS transaction_count,
+               (SELECT o.doc_id FROM filings o WHERE o.id = f.amends_filing_id)
+                   AS amends_doc_id,
+               f.amendment_method, f.amendment_confidence, f.amendment_note,
+               f.amendment_verified_at
+        FROM filings f
+        WHERE f.amends_filing_id = %s
+        ORDER BY f.filing_date, f.doc_id
         """,
         (filing_id,),
     ).fetchall()

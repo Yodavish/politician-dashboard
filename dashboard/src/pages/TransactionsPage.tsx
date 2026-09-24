@@ -145,6 +145,7 @@ export default function TransactionsPage() {
                         txnDate={t.txn_date}
                         flags={t.quality_flags}
                         filingDate={t.filing_date}
+                        verifiedDate={t.verified_transaction_date}
                       />
                     </TableCell>
                     <TableCell>

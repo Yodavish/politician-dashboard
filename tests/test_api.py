@@ -138,6 +138,35 @@ class TestFilings:
         resp = api_client.get("/filings/99999999")
         assert resp.status_code == 404
 
+    def test_detail_exposes_amendment_relationships_and_verification(self, api_client):
+        import psycopg
+
+        with psycopg.connect(api_client.app.state.database_url, autocommit=True) as conn:
+            conn.execute(
+                "UPDATE filings SET amends_filing_id = "
+                "(SELECT id FROM filings WHERE doc_id = '20026537'), "
+                "amendment_method = 'amendment_match', amendment_confidence = 'medium', "
+                "amendment_note = 'Curated relationship' "
+                "WHERE doc_id = '20026727'"
+            )
+            conn.execute(
+                "UPDATE transactions SET verified_transaction_date = '2025-04-17', "
+                "verification_method = 'amendment_match', "
+                "verification_confidence = 'high', "
+                "verification_source_doc_id = '20026727', "
+                "verification_note = 'Source confirmation', verified_at = now() "
+                "WHERE ticker = 'CSCO'"
+            )
+        original = api_client.get("/filings/20026537").json()
+        assert original["amendments"][0]["doc_id"] == "20026727"
+        assert original["amendments"][0]["amendment_method"] == "amendment_match"
+        amended = api_client.get("/filings/20026727").json()
+        assert amended["amends_doc_id"] == "20026537"
+        tx = next(t for t in amended["transactions"] if t["ticker"] == "CSCO")
+        assert tx["verified_transaction_date"] == "2025-04-17"
+        assert tx["verification_source_doc_exists"] is True
+        assert tx["txn_date"] == "2024-02-05"
+
 
 class TestTransactions:
     def test_list_returns_transactions(self, api_client):
@@ -156,6 +185,9 @@ class TestTransactions:
         # in the fixture, so the field must be exposed and nullable.
         assert first["filing_date"] is None
         assert first["quality_flags"] == []
+        assert first["verified_transaction_date"] is None
+        assert first["verification_method"] is None
+        assert first["verification_source_doc_exists"] is False
 
     def test_quality_flags_exposed(self, api_client):
         resp = api_client.get("/transactions", params={"doc_id": "20032062"})

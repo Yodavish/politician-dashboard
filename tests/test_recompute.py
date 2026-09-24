@@ -12,6 +12,7 @@ from datetime import date
 import psycopg
 
 from politician_dashboard.ingest.__main__ import main
+from politician_dashboard.ingest.curation import verify_transaction
 from politician_dashboard.ingest.models import Filing, Transaction
 from politician_dashboard.ingest.quality import (
     AFTER_FILING,
@@ -87,6 +88,27 @@ def _txn_rows(url: str, doc_id: str) -> list[tuple]:
 
 
 class TestRecomputeQualityFlags:
+    def test_recompute_does_not_read_or_change_curated_verification(self, temp_database_url: str):
+        url = temp_database_url
+        _seed(url, "verified-row", date(2025, 6, 1), [(date(2025, 5, 17), date(2025, 5, 18))])
+        with psycopg.connect(url, autocommit=True) as conn:
+            txn_id = conn.execute("SELECT id FROM transactions").fetchone()[0]
+            verify_transaction(
+                conn, transaction_id=txn_id,
+                verified_transaction_date=date(2025, 4, 17), method="manual_review",
+                confidence="high", source_doc_id="external-evidence",
+            )
+        _recompute(url, as_of=date(2025, 6, 10))
+        with psycopg.connect(url) as conn:
+            row = conn.execute(
+                "SELECT verified_transaction_date, verification_method, "
+                "verification_confidence, verification_source_doc_id, "
+                "verification_note, verified_at FROM transactions WHERE id = %s",
+                (txn_id,),
+            ).fetchone()
+        assert row[:5] == (date(2025, 4, 17), "manual_review", "high", "external-evidence", None)
+        assert row[5] is not None
+
     def test_sony_filing_gets_all_txn_flags(self, temp_database_url: str):
         url = temp_database_url
         _seed(url, "20033889", date(2026, 2, 9), [(date(2026, 12, 26), date(2026, 1, 21))])

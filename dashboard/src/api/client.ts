@@ -1,5 +1,6 @@
 import type {
   FilingDetail,
+  FilingSummary,
   Paginated,
   Politician,
   Transaction,
@@ -41,9 +42,9 @@ export function fetchPolitician(
 export function fetchPoliticianFilings(
   id: string,
   params?: Record<string, string | number | undefined>,
-): Promise<Paginated<FilingDetail>> {
+): Promise<Paginated<FilingSummary>> {
   const qs = params ? "?" + toQuery(params) : "";
-  return fetchJson<Paginated<FilingDetail>>(
+  return fetchJson<Paginated<FilingSummary>>(
     `${BASE}/politicians/${id}/filings${qs}`,
   );
 }
@@ -60,9 +61,9 @@ export function fetchPoliticianTransactions(
 
 export function fetchFilings(
   params?: Record<string, string | number | undefined>,
-): Promise<Paginated<FilingDetail>> {
+): Promise<Paginated<FilingSummary>> {
   const qs = params ? "?" + toQuery(params) : "";
-  return fetchJson<Paginated<FilingDetail>>(`${BASE}/filings${qs}`);
+  return fetchJson<Paginated<FilingSummary>>(`${BASE}/filings${qs}`);
 }
 
 export function fetchFiling(docId: string): Promise<FilingDetail> {

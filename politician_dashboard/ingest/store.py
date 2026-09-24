@@ -83,9 +83,9 @@ def store_filing(
                         filing_id, sequence, txn_source_id, owner_token,
                         asset_name, ticker, asset_type_code, txn_type,
                         txn_date, notification_date, amount_min, amount_max,
-                        amount_raw, notes, quality_flags
+                        amount_raw, notes, quality_flags, filing_status
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         filing_id,
@@ -103,6 +103,7 @@ def store_filing(
                         tx.amount_raw,
                         tx.notes,
                         list(tx.quality_flags),
+                        tx.filing_status,
                     ),
                 )
             return True
