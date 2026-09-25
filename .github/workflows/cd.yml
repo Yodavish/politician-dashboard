@@ -78,13 +78,21 @@ jobs:
 
       - name: Send deployment command to EC2 via SSM
         id: send-command
+        env:
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
+          if [[ ! "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid IMAGE_TAG" >&2
+            exit 1
+          fi
+          parameters=$(jq -cn --arg image_tag "$IMAGE_TAG" \
+            '{commands:["IMAGE_TAG=\($image_tag) bash /opt/politician-dashboard/deploy.sh"]}')
           command_id=$(aws ssm send-command \
             --instance-ids "$EC2_INSTANCE_ID" \
             --document-name AWS-RunShellScript \
-            --parameters '{"commands":["bash /opt/politician-dashboard/deploy.sh"]}' \
-            --comment "Deploy $GITHUB_SHA to production" \
+            --parameters "$parameters" \
+            --comment "Deploy $IMAGE_TAG to production" \
             --query Command.CommandId --output text)
           echo "Sent SSM command $command_id"
           echo "command-id=$command_id" >> "$GITHUB_OUTPUT"

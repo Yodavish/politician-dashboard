@@ -1,446 +1,140 @@
 # Politician Dashboard
 
-An end-to-end software engineering project for collecting and exploring publicly available U.S. politician stock trade disclosures. The system ingests and parses House and Senate Periodic Transaction Reports (PTRs), normalizes and stores the data in PostgreSQL, exposes it through a read-only FastAPI API, and provides a React + TypeScript dashboard for exploring the data.
+Politician Dashboard collects publicly available U.S. House and Senate stock-trade disclosures, preserves source data in PostgreSQL, and provides a read-only API and web dashboard for exploring filings and transactions. It does not provide investment scoring or buy/sell recommendations.
 
-The project also serves as a practical exploration of modern software engineering practices, including automated testing, CI/CD, static security analysis, dependency auditing, and automated dependency management.
+## Architecture
+
+House Clerk PTR PDFs and Senate eFD disclosures are fetched and parsed by the Python ingestion pipeline. Filings and transactions are stored in PostgreSQL and served by FastAPI to a React dashboard.
+
+Production deployment uses GitHub Actions to build the API and web images, tag them with the full Git SHA, and push them to ECR. The workflow passes that SHA to EC2 through SSM; EC2 pulls the matching images and runs them with Docker Compose. PostgreSQL remains on EC2 with its persistent `pgdata` volume.
 
 ## Live Demo
 
-[Congress Trade Tracker](http://52.207.143.200/transactions) — currently served from the temporary EC2 instance's public IP. Custom domain and HTTPS are planned for a later milestone.
+[Congress Trade Tracker](http://52.207.143.200/transactions) — currently served from the EC2 instance's public IP. A custom domain and HTTPS are planned.
 
-## Key Features
+## Technology stack
 
-- House and Senate PTR disclosure ingestion and parsing
-- Idempotent PostgreSQL data storage with source provenance
-- Read-only FastAPI REST API
-- React + TypeScript web dashboard
-- URL-based transaction filtering and pagination
-- Automated backend and frontend testing
-- GitHub Actions CI with PostgreSQL integration testing
-- GitHub Actions continuous deployment to a single production EC2 instance via AWS Systems Manager (OIDC)
-- CodeQL static security analysis
-- Python and npm dependency vulnerability auditing
-- Dependabot security updates and scheduled dependency updates
+- **Backend:** Python 3.14, FastAPI, psycopg, PostgreSQL 16, pdfplumber, pytest, uv
+- **Frontend:** React, TypeScript, Vite, Vitest, Oxlint, Tailwind CSS, shadcn/ui
+- **Tooling:** Docker Compose, GitHub Actions, CodeQL, Dependabot
 
-## Project Overview
-
-This project collects publicly available House and Senate member stock trade disclosures, parses and normalizes the source data, stores the resulting records in PostgreSQL, exposes them through a read-only REST API, and serves a web dashboard (`dashboard/`) for exploring the data.
-
-## Technology Stack
-
-### Backend
-
-- **Python 3.14**
-- **FastAPI**
-- **PostgreSQL 16**
-- **psycopg**
-- **pdfplumber**
-- **pytest**
-- **uv**
-
-### Frontend
-
-- **React**
-- **TypeScript**
-- **Vite**
-- **Vitest**
-- **Oxlint**
-- **Tailwind CSS**
-- **shadcn/ui**
-
-### DevOps & Security
-
-- **Docker / Docker Compose**
-- **GitHub Actions**
-- **GitHub CodeQL**
-- **Dependabot**
-- **uv audit**
-- **npm audit**
-
-## V1 Scope
-
-- Daily-style ingestion of House PTR disclosure PDFs from the Clerk's Office and Senate eFD PTR disclosures from `efdsearch.senate.gov`.
-- Parsing and normalization of transaction data, with source provenance (`house_clerk` / `senate_efd`) recorded on every filing and ingestion run.
-- Storage in PostgreSQL (Postgres 16) via SQL migrations.
-- A read-only FastAPI REST API (`/health`, `/politicians`, `/filings`, `/transactions`).
-- A React + TypeScript web dashboard (`dashboard/`) that consumes that API.
-
-## Architecture / Project Structure
+## Project structure
 
 ```text
 politician_dashboard/
-├── api/                  # Read-only FastAPI REST API
-│   ├── routes/           #   health, filings, transactions, politicians
-│   ├── main.py           #   application factory (create_app)
-│   ├── queries.py        #   parameterized SQL data access
-│   ├── schemas.py        #   response models
-│   └── ...
-├── config.py             # DATABASE_URL from the environment
-├── db.py                 # psycopg connection helper
-├── ingest/               # Ingestion pipeline
-│   ├── parser.py         #   House PDF -> normalized transactions
-│   ├── runner.py         #   per-year, per-source orchestration
-│   ├── store.py          #   filing + transactions persistence
-│   ├── sources/          #   House Clerk + Senate eFD source adapters
-│   └── __main__.py       #   CLI entrypoint (--source house|senate)
-└── migrations/            # SQL migrations
-    └── migrate.py        # migration runner
-
-compose.yaml              # Docker service for PostgreSQL
-pyproject.toml            # backend dependencies (managed by uv)
-tests/                    # backend pytest suite + PDF fixtures
-tools/ai_review/          # advisory AI code reviewer (GitHub API + Ollama model)
-
-dashboard/                # Web dashboard (React + Vite + TypeScript)
-├── src/api/              #   typed API response types + fetch wrapper
-├── src/hooks/            #   URL filter state, politician-name lookup
-├── src/components/       #   layout, health badge, pagination, states
-├── src/pages/            #   transactions, politicians, profile, filing
-└── src/lib/              #   formatting helpers
+├── api/                 # FastAPI routes, queries, and response schemas
+├── ingest/              # House/Senate parsers, source adapters, runner, storage
+├── migrations/          # SQL schema migrations and migration runner
+├── config.py, db.py     # Environment configuration and DB connections
+dashboard/               # React/Vite app, API client, pages, and components
+tests/                   # Backend tests and source-document fixtures
+compose.yaml             # Local PostgreSQL and application services
+tools/ai_review/         # Advisory pull-request review tool
 ```
 
-## Engineering & CI/CD
+## Local development
 
-The project uses GitHub Actions to automatically validate changes through pull requests and pushes to `main`.
+### Prerequisites
 
-The CI pipeline includes:
+- Python 3.14 and [uv](https://docs.astral.sh/uv/)
+- Docker with Compose (for PostgreSQL 16)
+- Node.js 22+ and npm (for the dashboard)
 
-- Python dependency installation with `uv`
-- PostgreSQL 16 service for database-backed integration tests
-- Backend pytest suite
-- Frontend Vitest tests
-- Frontend Oxlint
-- TypeScript type checking
-- Production frontend build
-- Python dependency vulnerability auditing with `uv audit`
-- npm dependency vulnerability auditing with `npm audit`
-- Advisory AI-assisted code review on every pull request (see below)
+### Configure and start the database
 
-The workflow uses least-privilege `GITHUB_TOKEN` permissions and grants the CI workflow only the repository access it requires.
-
-### Advisory AI-assisted code review
-
-An `ai-review` workflow complements the CI checks with an automated, **advisory** AI code review on every pull request (`opened`, `synchronize`, `reopened`). It runs on a GitHub-hosted `ubuntu-latest` runner, installs a local Ollama server, and uses the `qwen2.5-coder:7b` model to analyze the PR diff. Findings that resolve to an actual changed line are posted as inline review comments; the rest and the overall summary appear in the review body.
-
-Review workflow security characteristics:
-
-- **The review never blocks merging** — it always posts as a `COMMENT` event.
-- **Pull request code is never checked out or executed.** The workflow checks out only the base branch (so the reviewer always runs the repository's own `tools/` code) and reads the diff and file contents through the GitHub REST API.
-- **Limited permissions.** The job requests only `contents: read` and `pull-requests: write`; no other secrets are available, and PR content is sent to the model as untrusted data (prompt injection is treated as data, not instructions).
-- **Fork and Dependabot pull requests** run with a read-only token; for those, the review is written to the workflow step summary instead of being posted, and the job never fails the pipeline.
-- **No secret leakage.** The `GITHUB_TOKEN` is only ever sent as an `Authorization` header to `api.github.com`; model output is never executed as a command.
-
-The reviewer itself lives in `tools/ai_review/` and runs with `python -m tools.ai_review`. Individual check runs are safe to repeat: a review is posted at most once per head commit.
-
-### Continuous deployment (production)
-
-A `Deploy to EC2 (SSM Run Command)` GitHub Actions workflow (`.github/workflows/cd.yml`) updates the single production EC2 instance after every push to `main`. It runs post-merge and is **not** a merge gate: CI and the advisory AI review remain the only pull-request checks.
-
-Architecture:
-
-- The runner authenticates to AWS with **short-lived credentials minted from GitHub Actions OIDC** — no long-lived AWS access keys and no SSH keys exist anywhere.
-- It assumes a dedicated IAM role whose trust policy is restricted to this repository's `main` branch.
-- It invokes **AWS Systems Manager Run Command** (`AWS-RunShellScript`) against the production instance, which runs the deployment script at `/opt/politician-dashboard/deploy.sh`.
-- The job waits for the SSM invocation to reach a terminal state and then prints the command output. A failed deployment (including a failed health check) fails the job and surfaces the SSM standard output/error, including `docker compose ps`.
-- The deployment script resets `/opt/politician-dashboard` to `origin/main`, rebuilds the `api` and `web` images, recreates only those two services, and never touches PostgreSQL, its `pgdata` volume, or `.env`. It never runs `docker compose down`, migrations, or ingestion.
-
-#### GitHub Actions required secrets
-
-| Secret | Contents |
-| --- | --- |
-| `AWS_ROLE_TO_ASSUME` | ARN of the IAM role the workflow assumes (see below), e.g. `arn:aws:iam::123456789012:role/PoliticianDashboard-CD`. |
-| `AWS_REGION` | AWS region hosting the instance, e.g. `us-east-1`. |
-| `EC2_INSTANCE_ID` | ID of the production EC2 instance, e.g. `i-0abcd1234efgh5678` |
-
-The instance needs no SSH ingress from GitHub; it only needs the SSM agent and an IAM instance profile.
-
-#### One-time AWS setup
-
-1. **Create the OIDC identity provider for GitHub** (once per account, if absent): Provider URL `https://token.actions.githubusercontent.com`, audience `sts.amazonaws.com`.
-
-2. **Create an IAM role** (e.g. `PoliticianDashboard-CD`) with a trust policy restricted to this repository's `main` branch:
-
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Principal": {
-           "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-         },
-         "Action": "sts:AssumeRoleWithWebIdentity",
-         "Condition": {
-           "StringEquals": {
-             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-           },
-           "StringLike": {
-             "token.actions.githubusercontent.com:sub": "repo:YoDavish/politician-dashboard:ref:refs/heads/main"
-           }
-         }
-       }
-     ]
-   }
-   ```
-
-3. **Attach a least-privilege policy** scoping Run Command to the production instance and the `AWS-RunShellScript` document:
-
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Sid": "SendRunCommandToProductionInstance",
-         "Effect": "Allow",
-         "Action": "ssm:SendCommand",
-         "Resource": [
-           "arn:aws:ec2:REGION:ACCOUNT_ID:instance/INSTANCE_ID",
-           "arn:aws:ssm:REGION:ACCOUNT_ID:document/AWS-RunShellScript"
-         ]
-       },
-       {
-         "Sid": "ReadCommandInvocationStatus",
-         "Effect": "Allow",
-         "Action": "ssm:GetCommandInvocation",
-         "Resource": "*"
-       }
-     ]
-   }
-   ```
-
-   Replace `REGION`, `ACCOUNT_ID`, and `INSTANCE_ID` with the AWS region, account ID, and the production instance ID (the same value as the `EC2_INSTANCE_ID` GitHub secret).
-
-   Why the two statements: `ssm:SendCommand` supports resource-level permissions, so it is scoped to the specific instance ARN and the exact SSM document the workflow runs. `ssm:GetCommandInvocation` does **not** support resource-level permissions in AWS IAM — it is keyed by the command/invocation the caller has permission to have created — so AWS requires `Resource: "*"` for that action. Keeping it in its own statement confines the wildcard to status reads of the workflow's own commands and nothing else.
-
-4. **Configure the EC2 instance for SSM**: attach an IAM instance profile whose policy permits SSM management, e.g. the AWS managed policy `AmazonSSMManagedInstanceCore`. Confirm the `amazon-ssm-agent` service is installed and running.
-
-5. **Place the deployment script** at `/opt/politician-dashboard/deploy.sh` and make it executable. Because it is not a tracked file, `git reset --hard origin/main` leaves it in place:
-
-   ```bash
-   #!/usr/bin/env bash
-   set -euo pipefail
-
-   cd /opt/politician-dashboard
-
-   git fetch --prune origin main
-   git checkout main
-   git reset --hard origin/main
-   if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
-     echo "Expected production branch 'main'" >&2
-     exit 1
-   fi
-
-   docker compose build api web
-   docker compose up -d api web
-
-   echo "--- running services ---"
-   docker compose ps
-
-   attempt=0
-   until curl --fail --silent --show-error http://127.0.0.1/api/health >/dev/null 2>&1; do
-     attempt=$((attempt + 1))
-     if [ "$attempt" -ge 60 ]; then
-       echo "Application did not become healthy within 300s" >&2
-       docker compose ps >&2
-       exit 1
-     fi
-     sleep 5
-   done
-
-   echo "--- health check ---"
-   curl --fail --silent --show-error http://127.0.0.1/api/health
-   echo
-   echo "Deployed $(git rev-parse --short HEAD) to production"
-   ```
-
-6. **Configure the three GitHub Actions secrets** and delete the obsolete SSH secrets (`EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`, `EC2_PORT`, `EC2_KNOWN_HOSTS`) that the previous SSH-based workflow used.
-
-Security properties:
-
-- The workflow grants only `id-token: write`; it has no `GITHUB_TOKEN` and performs no repository actions.
-- The assumed role is restricted to `main` of this repository, so only that branch can trigger a deployment.
-- Short-lived OIDC credentials: no long-lived AWS access keys or SSH private keys appear in the repository or in GitHub secrets.
-- Only one deployment runs at a time (`concurrency` group); additional pushes queue rather than cancelling an in-flight deploy.
-
-Manual steps stay on the instance. Apply SQL migrations when a release requires them with:
+Copy the environment template and set a local database password and matching URL:
 
 ```bash
-cd /opt/politician-dashboard
-docker compose run --rm api python -m politician_dashboard.migrations.migrate
-```
-
-The House Clerk and Senate eFD ingestion are likewise still run manually.
-
-## Security & Dependency Management
-
-The project uses several complementary security and dependency-management controls:
-
-- **CodeQL** — static analysis for Python, JavaScript/TypeScript, and GitHub Actions.
-- **uv audit** — checks Python dependencies for known vulnerabilities.
-- **npm audit** — checks frontend dependencies for known npm vulnerabilities.
-- **Dependabot alerts** — identifies dependencies with known security vulnerabilities.
-- **Dependabot security updates** — creates pull requests for available security fixes.
-- **Dependabot version updates** — weekly updates for Python, npm, and GitHub Actions dependencies.
-
-Dependabot configuration is maintained in `.github/dependabot.yml`.
-
-The CI workflow uses least-privilege GitHub Actions permissions with `contents: read`.
-
-## Prerequisites
-
-- **Python 3.14** (see `.python-version`)
-- **uv** for dependency management
-- **Docker** (with Compose) to run **PostgreSQL 16**
-- **Node.js 22+** (with npm) for the dashboard
-
-## Local Setup
-
-```bash
-# 1. Create your environment file from the template
 cp .env.example .env
-#    (edit the password / DATABASE_URL in .env as needed)
-
-# 2. Install dependencies
-uv sync
-
-# 3. Start PostgreSQL
-docker compose up -d
 ```
 
-## Database Migrations
-
-Apply pending SQL migrations (in filename order) with:
+`.env` defines `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `DATABASE_URL`. The Compose database uses the first three values; backend commands use `DATABASE_URL` (default template URL points to `127.0.0.1:5432`). Keep the credentials and URL in sync. Compose also requires `IMAGE_TAG` because the API and web services reference tagged ECR images; for a database-only local startup, any placeholder value satisfies Compose interpolation:
 
 ```bash
+uv sync
+IMAGE_TAG=local docker compose up -d db
 uv run --env-file .env python -m politician_dashboard.migrations.migrate
 ```
 
-Migrations live in `politician_dashboard/migrations/*.sql` and are tracked in the `schema_migrations` table.
-
-## Running the FastAPI API
-
-The app is created by the `create_app` factory in `politician_dashboard/api/main.py`, so run uvicorn with `--factory`:
+### Run the API
 
 ```bash
-uv run --env-file .env uvicorn politician_dashboard.api:create_app --factory --host 0.0.0.0 --port 8000
+uv run --env-file .env uvicorn politician_dashboard.api:create_app \
+  --factory --host 0.0.0.0 --port 8000
 ```
 
-## Swagger / OpenAPI Docs
+Health endpoint: `http://localhost:8000/health`.
 
-Once the API is running, interactive docs are available at:
+### Run the dashboard
+
+```bash
+cd dashboard
+npm ci
+npm run dev
+```
+
+Open `http://localhost:5173`. The Vite server proxies `/api` to `http://127.0.0.1:8000` by default; set `API_TARGET` to use another API host.
+
+## API
+
+The API is read-only. Main resources are `/health`, `/politicians`, `/filings`, and `/transactions`. Interactive documentation and the OpenAPI schema are available at:
 
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 - OpenAPI JSON: `http://localhost:8000/openapi.json`
 
-## Running the Web Dashboard
-
-The dashboard is a separate Vite + React + TypeScript app in `dashboard/`. Install its dependencies and start the dev server:
+Example:
 
 ```bash
-cd dashboard
-npm install
-npm run dev
+curl 'http://localhost:8000/transactions'
+curl 'http://localhost:8000/filings'
 ```
 
-With the API running on `http://127.0.0.1:8000`, open `http://localhost:5173`. The Vite dev server proxies `/api` to the backend (host configurable via the `API_TARGET` env var, default `http://127.0.0.1:8000`), so no CORS configuration is needed on the API.
+## Ingestion
 
-Production build, tests, and lint:
+Ingestion defaults to the House Clerk source. Select Senate eFD explicitly; sources are never auto-detected:
 
 ```bash
-npm run build     # typecheck (tsc -b) + production bundle
-npm test          # vitest unit tests
-npm run lint      # oxlint
+# Current year, House (default)
+uv run --env-file .env python -m politician_dashboard.ingest
+
+# A single year or a year-range backfill
+uv run --env-file .env python -m politician_dashboard.ingest --year 2025
+uv run --env-file .env python -m politician_dashboard.ingest --backfill --since 2011
+
+# Senate eFD
+uv run --env-file .env python -m politician_dashboard.ingest --source senate --year 2025
 ```
 
-## Running the Ingestion CLI
+Important behavior:
 
-Ingest the current year's PTR disclosures. The source is selected explicitly with `--source`; the House Clerk (`house`) is the default, and no auto-detection between sources is performed.
+- Re-ingestion is idempotent by source filing ID and stores source provenance with filings and ingestion runs.
+- Source-reported transaction dates and values are preserved. Quality flags describe inconsistencies without rewriting source data.
+- Senate electronic filings are parsed from the eFD portal. Senate paper filings are scans without a text layer, so they are counted and skipped rather than fabricated from images.
+- Senate filing IDs distinguish electronic UUIDs from numeric paper IDs. Senators use the `<STATE>00` district convention; unresolved state data raises an error rather than being guessed.
+- Senate has no transaction notification date on the detail page, so its listing “Date Received” is used for the normalized filing and notification dates.
+- Live Senate ingestion is opt-in and is not part of the scheduled pipeline.
 
-```bash
-uv run --env-file .env python -m politician_dashboard.ingest                # House (default)
-uv run --env-file .env python -m politician_dashboard.ingest --source senate
-```
+The CLI also supports source-only quality-flag recomputation (`--recompute-flags --as-of YYYY-MM-DD`) and explicit, provenance-required curation of verified transaction dates and amendment relationships. Curation targets a single transaction or an explicit pair of stored filings; source status such as `Amended` is a review signal and does not create amendment links automatically. Run `uv run --env-file .env python -m politician_dashboard.ingest --help` for options.
 
-Options:
-
-- `--source {house,senate}` — disclosure source to ingest (default `house`)
-- `--year YEAR` — ingest a single year (default: current year)
-- `--backfill` — ingest every year from `--since` through the current year
-- `--since YEAR` — starting year for `--backfill` (default 2011)
-- `--database-url URL` — override `DATABASE_URL`
-
-### Senate eFD source
-
-Senate PTRs are collected from the official Senate eFD Search portal (`efdsearch.senate.gov`), which requires the site's prohibition-agreement consent flow and serves its index as paginated JSON. Key normalization decisions:
-
-- **Provenance.** Electronic Senate filings are stored in the same `filings`/`transactions` tables as House filings, with `filings.source = 'senate_efd'` and `ingest_runs.source = 'senate_efd'`.
-- **doc_id.** The Senate view id is used as the idempotency key: a UUID for electronic filings (`/search/view/ptr/<uuid>/`), a numeric id for paper filings (`/search/view/paper/<id>/`).
-- **state_district.** Senators have no district, so `state_district` uses the `<STATE>00` pseudo-district convention (e.g. `OK00`). The filer's state is resolved from the official Senate contact listing; an unresolved senator raises an explicit error rather than guessing.
-- **filing_type.** Senate PTRs normalize to the shared cross-chamber `P` filing type.
-- **notification_date.** The Senate detail page carries no notification date, so `transactions.notification_date` is normalized from the listing's "Date Received" (the filing's `filing_date`).
-- **Paper (scanned) filings.** Numeric-id (paper) filings are scans with no machine-readable text layer; they are counted as scanned and never stored or fabricated.
-- **Source preservation.** The raw detail HTML/PDF bytes are stored, and `filings.pdf_url` holds the source view URL.
-
-Live Senate ingestion is available via the explicit `--source senate` flag but is **not** part of the scheduled/daily pipeline in V1.
-
-## Running the Test Suite
+## Tests and checks
 
 ```bash
+# Backend; database-backed tests require PostgreSQL and DATABASE_URL
 uv run --env-file .env pytest
+
+# Frontend (from dashboard/)
+npm test
+npm run lint
+npm run build   # TypeScript typecheck and production bundle
 ```
 
-The database-backed integration tests (storage, migrations, API) require a reachable PostgreSQL and `DATABASE_URL` (provided by `.env`) to run; they are skipped automatically otherwise. The parser and runner unit tests run without a database.
+CI runs backend tests with PostgreSQL, frontend tests, lint, typecheck/build, and dependency audits. Parser and runner unit tests can run without a database.
 
-## Data Source / PTR Explanation
+## Production deployment
 
-Data comes from two official sources:
+```text
+GitHub → GitHub Actions → Docker build → ECR → SSM → EC2 → Docker Compose
+```
 
-- **U.S. House of Representatives Office of the Clerk**, which publishes Members' Financial Disclosure statements as PDFs ("Periodic Transaction Reports", or PTRs). The indexed disclosures are available online for each year; each filing's PDF lists the member's security transactions.
-- **U.S. Senate Office of Public Records** (eFD Search, `efdsearch.senate.gov`), which publishes Senate PTRs as electronic HTML detail pages or scanned paper documents.
-
-The ingestion pipeline fetches the yearly index for the selected source, acquires each PTR document, extracts and normalizes the transaction records, and stores them keyed by the filing's `doc_id` (idempotent on re-ingest) with source provenance.
-
-## Data Quality
-
-Parsed records remain faithful to the official source documents; source values
-are never silently corrected or reinterpreted. Derived data-quality signals
-(`politician_dashboard/ingest/quality.py`) flag internally inconsistent
-records without mutating them.
-
-Known example: House filing **20033889** (Rep. Steve Cohen, TN09) publishes a
-SONY purchase with transaction date `12/26/2026`, notification date
-`01/21/2026`, and signature date `02/09/2026` — the transaction postdates both
-its own notification and the filing that discloses it. A later **amended**
-filing (**20034452**) reports the same purchase with transaction date
-`12/26/2025`, but that correction is not machine-linked to the original
-filing, so `20033889` is stored and served as `2026-12-26` and flagged as
-`transaction_date_after_notification` / `transaction_date_after_filing`.
-
-By the same evidence rule, Senator Alan Armstrong resolves to `OK00` from the
-official Senate listing (a stale spec expectation claimed `TN00`).
-
-## Important V1 Limitations
-
-- **Live Senate ingestion is opt-in.** Ingestion defaults to House; Senate runs require the explicit `--source senate` flag and are not part of the scheduled pipeline.
-- **Scanned/image-only filings are skipped.** House and Senate paper (image-only) disclosures have no embedded text layer; they cannot be parsed and are skipped (counted in the ingestion run). Senate paper filings are never converted to judgments from their images.
-- **`politician_id` is a derived V1 identity.** A politician is identified by normalized `state_district + first name + last name`; it is a convenience identifier for grouping and is **not** a permanent, authoritative politician identity. Senators use the `<STATE>00` district convention.
-- **No investment scoring or recommendations.** The project stores and serves raw disclosures only; it does not provide buy/sell assessments or scoring.
-- **The API is read-only.** No write/update endpoints are exposed.
-
-## Roadmap
-
-- [x] End-to-end ingestion pipeline
-- [x] PostgreSQL persistence
-- [x] FastAPI read-only API
-- [x] React dashboard
-- [x] Automated CI
-- [x] CodeQL security analysis
-- [x] Dependency auditing
-- [x] Dependabot
-- [x] AI-assisted code review
-- [x] Dockerized application deployment
-- [x] AWS deployment
-- [x] Continuous deployment workflow (SSM Run Command + OIDC)
-- [ ] Production health checks and monitoring
-
+GitHub Actions builds and pushes API and web images tagged with the full 40-character Git SHA. SSM passes that SHA to the EC2 deployment script as `IMAGE_TAG`; EC2 authenticates to ECR, pulls both images, and updates the API and web services. PostgreSQL remains on EC2 with its persistent `pgdata` volume. CI/CD details live in `.github/workflows/ci.yml` and `.github/workflows/cd.yml`.
