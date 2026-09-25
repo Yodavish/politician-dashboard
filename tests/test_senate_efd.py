@@ -646,6 +646,56 @@ class TestSenateStateResolution:
             anchor_date=date(2026, 3, 23), members=_sample_members(),
         ) == "OK"
 
+    @pytest.mark.parametrize("suffix", ["II", "III", "IV", "Jr."])
+    def test_justice_surname_suffix_matches_historical_snapshot(self, suffix):
+        justice = SenateMember(
+            bioguide_id="J000312",
+            last_name="Justice",
+            first_name="Jim",
+            state="WV",
+            terms=(
+                SenateMemberTerm(date(2025, 1, 14), date(2031, 1, 3)),
+            ),
+        )
+        assert _resolve_state(
+            f"Justice {suffix}",
+            "James Conley",
+            {},
+            office=f"Justice {suffix}, James Conley (Senator)",
+            anchor_date=date(2025, 1, 14),
+            members=[justice],
+        ) == "WV"
+
+    def test_justice_surname_suffix_preserves_service_date_boundary(self):
+        justice = SenateMember(
+            bioguide_id="J000312",
+            last_name="Justice",
+            first_name="Jim",
+            state="WV",
+            terms=(
+                SenateMemberTerm(date(2025, 1, 14), date(2031, 1, 3)),
+            ),
+        )
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Justice II",
+                "James Conley",
+                {},
+                office="Justice II, James Conley (Senator)",
+                anchor_date=date(2025, 1, 13),
+                members=[justice],
+            )
+
+        for anchor_date in (date(2025, 1, 14), date(2025, 1, 15)):
+            assert _resolve_state(
+                "Justice II",
+                "James Conley",
+                {},
+                office="Justice II, James Conley (Senator)",
+                anchor_date=anchor_date,
+                members=[justice],
+            ) == "WV"
+
     def test_post_resignation_filing_fails_closed(self):
         with pytest.raises(SenateStateResolveError):
             _resolve_state(

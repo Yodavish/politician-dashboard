@@ -43,6 +43,33 @@ class TestPoliticians:
         items = resp.json()["items"]
         assert {p["id"] for p in items} == {PELOSI_ID}
 
+    def test_list_filters_by_name_case_insensitively(self, api_client):
+        resp = api_client.get("/politicians", params={"name": "nAnCy"})
+        body = resp.json()
+        assert [p["id"] for p in body["items"]] == [PELOSI_ID]
+        assert body["pagination"]["total"] == 1
+
+    def test_list_filters_by_name_and_state(self, api_client):
+        matching = api_client.get(
+            "/politicians", params={"name": "Nancy", "state": "ca"}
+        ).json()
+        assert [p["id"] for p in matching["items"]] == [PELOSI_ID]
+
+        excluded = api_client.get(
+            "/politicians", params={"name": "Nancy", "state": "al"}
+        ).json()
+        assert excluded["items"] == []
+        assert excluded["pagination"]["total"] == 0
+
+    def test_list_paginates_filtered_results(self, api_client):
+        resp = api_client.get(
+            "/politicians", params={"name": "a", "limit": 1, "offset": 1}
+        )
+        body = resp.json()
+        assert [p["id"] for p in body["items"]] == [PELOSI_ID]
+        assert body["pagination"]["total"] == 2
+        assert body["pagination"]["offset"] == 1
+
     def test_politician_detail(self, api_client):
         resp = api_client.get(f"/politicians/{ADERHOLT_ID}")
         assert resp.status_code == 200
@@ -206,6 +233,35 @@ class TestTransactions:
         assert all(t["politician_id"] == PELOSI_ID for t in items)
         assert all(t["politician_name"] == "Nancy Pelosi" for t in items)
         assert all(t["filing_date"] == "2024-03-10" for t in items)
+
+    def test_filter_politician_name_case_insensitive_partial(self, api_client):
+        body = api_client.get(
+            "/transactions", params={"politician_name": "nAnCy pEl"}
+        ).json()
+        assert body["pagination"]["total"] == 2
+        assert len(body["items"]) == 2
+        assert all(t["politician_name"] == "Nancy Pelosi" for t in body["items"])
+
+    def test_filter_politician_name_combines_with_ticker(self, api_client):
+        body = api_client.get(
+            "/transactions",
+            params={"politician_name": "Nancy", "ticker": "nvda"},
+        ).json()
+        assert body["pagination"]["total"] == 1
+        assert len(body["items"]) == 1
+        assert body["items"][0]["politician_name"] == "Nancy Pelosi"
+        assert body["items"][0]["ticker"] == "NVDA"
+
+    def test_filter_politician_name_before_pagination(self, api_client):
+        body = api_client.get(
+            "/transactions",
+            params={"politician_name": "Nancy", "limit": 1, "offset": 1},
+        ).json()
+        assert body["pagination"]["total"] == 2
+        assert body["pagination"]["offset"] == 1
+        assert len(body["items"]) == 1
+        assert body["items"][0]["politician_name"] == "Nancy Pelosi"
+        assert body["items"][0]["ticker"] == "NVDA"
 
     def test_filter_ticker(self, api_client):
         resp = api_client.get("/transactions", params={"ticker": "nvda"})

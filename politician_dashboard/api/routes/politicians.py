@@ -26,6 +26,7 @@ def politicians_list(
     request: Request,
     conn: Conn,
     state: Optional[str] = None,
+    name: Optional[str] = None,
     sort: str = "last_name",
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -33,6 +34,8 @@ def politicians_list(
     filters: dict = {}
     if state is not None:
         filters["state_prefix"] = state.lower() + "%"
+    if name is not None and name.strip():
+        filters["name"] = name.strip()
     total, rows = queries.list_politicians(
         conn, filters=filters, sort_key=sort, limit=limit, offset=offset
     )

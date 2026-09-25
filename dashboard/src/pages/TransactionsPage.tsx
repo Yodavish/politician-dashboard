@@ -37,6 +37,7 @@ import {
 interface TxnFilters {
   limit: number;
   offset: number;
+  politician_name: string;
   ticker: string;
   txn_type: string;
   owner: string;
@@ -50,6 +51,7 @@ interface TxnFilters {
 const defaults: TxnFilters = {
   limit: 50,
   offset: 0,
+  politician_name: "",
   ticker: "",
   txn_type: "",
   owner: "",
@@ -73,6 +75,7 @@ export default function TransactionsPage() {
     fetchTransactions({
       limit: filters.limit,
       offset: filters.offset,
+      politician_name: filters.politician_name || undefined,
       ticker: filters.ticker || undefined,
       txn_type: filters.txn_type || undefined,
       owner: filters.owner || undefined,
@@ -101,6 +104,7 @@ export default function TransactionsPage() {
   }, [
     filters.limit,
     filters.offset,
+    filters.politician_name,
     filters.ticker,
     filters.txn_type,
     filters.owner,
@@ -243,6 +247,7 @@ function RealFilterBar({
   patch: (p: Partial<TxnFilters>) => void;
 }) {
   const hasFilters =
+    filters.politician_name ||
     filters.ticker ||
     filters.txn_type ||
     filters.owner ||
@@ -254,6 +259,16 @@ function RealFilterBar({
 
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-muted-foreground text-xs">Politician</Label>
+        <Input
+          type="text"
+          value={filters.politician_name}
+          placeholder="Search politician name"
+          className="h-9 w-48"
+          onChange={(e) => patch({ politician_name: e.target.value })}
+        />
+      </div>
       <div className="flex flex-col gap-1.5">
         <Label className="text-muted-foreground text-xs">Ticker</Label>
         <Input
@@ -337,6 +352,7 @@ function RealFilterBar({
 }
 
 const clearFilters: Partial<TxnFilters> = {
+  politician_name: "",
   ticker: "",
   txn_type: "",
   owner: "",

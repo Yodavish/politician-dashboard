@@ -69,6 +69,9 @@ def list_transactions(
         clauses.append("f.state_district = %s AND lower(f.first_name) = %s "
                        "AND lower(f.last_name) = %s")
         params += [district, first.lower(), last.lower()]
+    if filters.get("politician_name") is not None:
+        clauses.append("(f.first_name || ' ' || f.last_name) ILIKE %s")
+        params.append(f"%{filters['politician_name']}%")
     if filters.get("doc_id") is not None:
         clauses.append("t.filing_id = (SELECT id FROM filings WHERE doc_id = %s)")
         params.append(filters["doc_id"])
@@ -191,6 +194,9 @@ def list_politicians(
     if filters.get("state_prefix") is not None:
         clauses.append("lower(f.state_district) LIKE %s")
         params.append(filters["state_prefix"])
+    if filters.get("name") is not None:
+        clauses.append("(f.first_name || ' ' || f.last_name) ILIKE %s")
+        params.append(f"%{filters['name']}%")
 
     column, descending = _sql.parse_sort(
         sort_key, {"last_name": "last_name", "state_district": "state_district"},

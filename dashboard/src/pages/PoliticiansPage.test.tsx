@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PoliticiansPage from "./PoliticiansPage";
@@ -53,5 +53,47 @@ describe("PoliticiansPage", () => {
     );
     await waitFor(() => expect(screen.queryByText("Robert Aderholt")).toBeNull());
     expect(screen.getByText(/No results/)).toBeInTheDocument();
+  });
+
+  it("fetches a name match outside the unfiltered page", async () => {
+    const nancy = {
+      ...sample,
+      items: [
+        {
+          ...sample.items[0],
+          id: "ca11_nancy_pelosi",
+          name: "Nancy Pelosi",
+          state: "CA",
+          district: "11",
+          state_district: "CA11",
+        },
+      ],
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "http://localhost");
+      const body = url.searchParams.has("name") ? nancy : sample;
+      return new Response(JSON.stringify(body), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <MemoryRouter initialEntries={["/politicians"]}>
+        <PoliticiansPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Robert Aderholt");
+    expect(screen.queryByText("Nancy Pelosi")).toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText("Search politicians"), {
+      target: { value: "Nancy" },
+    });
+
+    await screen.findByText("Nancy Pelosi");
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        new URL(String(input), "http://localhost").searchParams.has("name"),
+      ),
+    ).toBe(true);
   });
 });

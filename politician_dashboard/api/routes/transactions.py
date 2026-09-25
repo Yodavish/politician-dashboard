@@ -22,6 +22,7 @@ def transactions_list(
     request: Request,
     conn: Conn,
     politician_id: Optional[str] = None,
+    politician_name: Optional[str] = None,
     ticker: Optional[str] = None,
     asset_type_code: Optional[str] = None,
     txn_type: Optional[str] = None,
@@ -38,6 +39,8 @@ def transactions_list(
     filters: dict = {}
     if politician_id is not None:
         filters["politician"] = resolve_politician(conn, politician_id)
+    if politician_name is not None and politician_name.strip():
+        filters["politician_name"] = politician_name.strip()
     if ticker is not None:
         filters["ticker"] = ticker
     if asset_type_code is not None:

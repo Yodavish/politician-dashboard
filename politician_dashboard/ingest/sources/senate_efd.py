@@ -522,6 +522,20 @@ def _normalize_name(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().lower()).strip()
 
 
+def _normalize_reference_surname(value: str) -> str:
+    """Normalize a historical surname, dropping a terminal generational suffix.
+
+    Some eFD office labels append a suffix to the surname (for example,
+    ``Justice II``), while the reference snapshot stores the surname alone.
+    Keep suffix-only values unchanged; correcting those malformed snapshot
+    entries is a separate data issue.
+    """
+    tokens = _normalize_name(value).split()
+    if len(tokens) > 1 and tokens[-1].strip(".,'\u2019") in _SUFFIX_TOKENS:
+        tokens.pop()
+    return " ".join(tokens)
+
+
 def _given_name_tokens(value: str) -> set[str]:
     """Significant given-name tokens of a name.
 
@@ -1009,8 +1023,9 @@ def _resolve_state(
 
     if members:
         snapshot_hits: list[SenateMember] = []
+        snapshot_last_key = _normalize_reference_surname(last)
         for member in members:
-            if _normalize_name(member.last_name) != last_key:
+            if _normalize_reference_surname(member.last_name) != snapshot_last_key:
                 continue
             if not _given_names_agree(first, member.first_name):
                 continue

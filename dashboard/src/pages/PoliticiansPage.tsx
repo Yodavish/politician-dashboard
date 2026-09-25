@@ -39,6 +39,7 @@ export default function PoliticiansPage() {
       limit: filters.limit,
       offset: filters.offset,
       state: filters.state || undefined,
+      name: filters.name || undefined,
     })
       .then((res) => {
         if (!cancelled) setData({ items: res.items, total: res.pagination.total });
@@ -52,14 +53,9 @@ export default function PoliticiansPage() {
     return () => {
       cancelled = true;
     };
-  }, [filters.state, filters.limit, filters.offset]);
+  }, [filters.state, filters.name, filters.limit, filters.offset]);
 
-  // Client-side name search over the loaded page (API has no name search param).
-  const items = (data?.items ?? []).filter((p) =>
-    filters.name
-      ? p.name.toLowerCase().includes(filters.name.toLowerCase())
-      : true,
-  );
+  const items = data?.items ?? [];
 
   const patch = (p: Partial<PolFilters>) => setFilters({ ...p, offset: 0 });
 
@@ -83,7 +79,7 @@ export default function PoliticiansPage() {
           <Input
             type="text"
             value={filters.name}
-            placeholder="Search loaded list"
+            placeholder="Search politicians"
             className="h-9 w-56"
             onChange={(e) => patch({ name: e.target.value })}
           />

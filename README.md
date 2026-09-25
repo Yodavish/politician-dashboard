@@ -48,11 +48,11 @@ Copy the environment template and set a local database password and matching URL
 cp .env.example .env
 ```
 
-`.env` defines `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `DATABASE_URL`. The Compose database uses the first three values; backend commands use `DATABASE_URL` (default template URL points to `127.0.0.1:5432`). Keep the credentials and URL in sync. Compose also requires `IMAGE_TAG` because the API and web services reference tagged ECR images; for a database-only local startup, any placeholder value satisfies Compose interpolation:
+`.env` defines `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `DATABASE_URL`. The standalone local Compose file uses the first three values; host-based backend commands use `DATABASE_URL` (the template points to `127.0.0.1:5432`). Keep the credentials and URL in sync. The local database file is not loaded by the production Compose command:
 
 ```bash
 uv sync
-IMAGE_TAG=local docker compose up -d db
+docker compose -f compose.local.yml up -d db
 uv run --env-file .env python -m politician_dashboard.migrations.migrate
 ```
 
@@ -60,7 +60,7 @@ uv run --env-file .env python -m politician_dashboard.migrations.migrate
 
 ```bash
 uv run --env-file .env uvicorn politician_dashboard.api:create_app \
-  --factory --host 0.0.0.0 --port 8000
+  --factory --host 127.0.0.1 --port 8000
 ```
 
 Health endpoint: `http://localhost:8000/health`.
