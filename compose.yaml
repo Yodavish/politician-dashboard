@@ -21,10 +21,7 @@ services:
     image: 110982595164.dkr.ecr.us-east-1.amazonaws.com/politician-dashboard-api:${IMAGE_TAG:?IMAGE_TAG must be set}
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-    depends_on:
-      db:
-        condition: service_healthy
+      DATABASE_URL: ${DATABASE_URL}
     expose:
       - "8000"
     healthcheck:
