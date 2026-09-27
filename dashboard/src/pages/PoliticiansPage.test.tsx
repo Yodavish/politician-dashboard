@@ -39,6 +39,12 @@ describe("PoliticiansPage", () => {
       </MemoryRouter>,
     );
     await screen.findByText("Robert Aderholt");
+    expect(screen.getByRole("button", { name: /Sort by Name/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Sort by State \/ District/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sort by Filings/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sort by Transactions/ })).toBeInTheDocument();
     expect(screen.getByText("AL04")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();

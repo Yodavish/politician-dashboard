@@ -96,8 +96,15 @@ def list_transactions(
         "t.amount_min", "amount",
     )
 
-    column, descending = _sql.parse_sort(sort_key, _sql.TRANSACTION_SORTS, "txn_date")
+    column, descending = _sql.parse_sort(
+        sort_key, _sql.TRANSACTION_SORTS, "txn_date"
+    )
     order = "DESC" if descending else "ASC"
+    amount_secondary = (
+        f", t.amount_max {order} NULLS LAST"
+        if sort_key.lstrip("-") == "amount_min"
+        else ""
+    )
     base_from = "transactions t JOIN filings f ON f.id = t.filing_id"
     total = _count(conn, base_from, clauses, params)
     rows = conn.execute(
@@ -116,7 +123,7 @@ def list_transactions(
                    AS verification_source_doc_exists
         FROM {base_from}
         {f'WHERE {" AND ".join(clauses)}' if clauses else ''}
-        ORDER BY {column} {order}, t.id
+        ORDER BY {column} {order} NULLS LAST{amount_secondary}, t.id
         LIMIT %s OFFSET %s
         """,
         params + [limit, offset],
@@ -199,7 +206,14 @@ def list_politicians(
         params.append(f"%{filters['name']}%")
 
     column, descending = _sql.parse_sort(
-        sort_key, {"last_name": "last_name", "state_district": "state_district"},
+        sort_key,
+        {
+            "name": "lower(concat_ws(' ', f.first_name, f.last_name))",
+            "last_name": "lower(f.last_name)",
+            "state_district": "lower(f.state_district)",
+            "filing_count": "count(DISTINCT f.id)",
+            "transaction_count": "count(t.id)",
+        },
         "last_name",
     )
     order = "DESC" if descending else "ASC"
@@ -225,7 +239,9 @@ def list_politicians(
         LEFT JOIN transactions t ON t.filing_id = f.id
         {where}
         GROUP BY lower(f.state_district), f.first_name, f.last_name, f.state_district
-        ORDER BY lower({column}) {order}
+        ORDER BY {column} {order} NULLS LAST,
+                 lower(f.last_name), lower(f.first_name), lower(f.state_district),
+                 f.last_name, f.first_name, f.state_district
         LIMIT %s OFFSET %s
         """,
         params + [limit, offset],

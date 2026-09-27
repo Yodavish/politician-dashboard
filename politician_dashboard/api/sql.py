@@ -19,9 +19,15 @@ FILING_SORTS: dict[str, str] = {
 TRANSACTION_SORTS: dict[str, str] = {
     "txn_date": "t.txn_date",
     "notification_date": "t.notification_date",
+    "politician_name": "lower(concat_ws(' ', f.first_name, f.last_name))",
+    "asset_name": "lower(t.asset_name)",
+    "ticker": "lower(t.ticker)",
+    "txn_type": "t.txn_type",
+    "owner": "lower(t.owner_token)",
+    "amount_min": "t.amount_min",
     "amount_max": "t.amount_max",
-    "ticker": "t.ticker",
     "created_at": "f.created_at",
+    "doc_id": "lower(f.doc_id)",
 }
 
 

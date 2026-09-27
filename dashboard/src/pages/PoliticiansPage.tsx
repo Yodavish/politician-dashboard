@@ -4,6 +4,7 @@ import { fetchPoliticians } from "@/api/client";
 import type { Politician } from "@/api/types";
 import { useFilters } from "@/hooks/useFilters";
 import Pagination from "@/components/Pagination";
+import SortableTableHead from "@/components/SortableTableHead";
 import { Empty, ErrorMessage, Loading } from "@/components/State";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -21,9 +21,10 @@ interface PolFilters {
   offset: number;
   state: string;
   name: string;
+  sort: string;
 }
 
-const defaults: PolFilters = { limit: 100, offset: 0, state: "", name: "" };
+const defaults: PolFilters = { limit: 100, offset: 0, state: "", name: "", sort: "name" };
 
 export default function PoliticiansPage() {
   const [filters, setFilters] = useFilters<PolFilters>(defaults);
@@ -40,6 +41,7 @@ export default function PoliticiansPage() {
       offset: filters.offset,
       state: filters.state || undefined,
       name: filters.name || undefined,
+      sort: filters.sort,
     })
       .then((res) => {
         if (!cancelled) setData({ items: res.items, total: res.pagination.total });
@@ -53,7 +55,7 @@ export default function PoliticiansPage() {
     return () => {
       cancelled = true;
     };
-  }, [filters.state, filters.name, filters.limit, filters.offset]);
+  }, [filters.state, filters.name, filters.limit, filters.offset, filters.sort]);
 
   const items = data?.items ?? [];
 
@@ -96,10 +98,30 @@ export default function PoliticiansPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>State / District</TableHead>
-                  <TableHead>Filings</TableHead>
-                  <TableHead>Transactions</TableHead>
+                  <SortableTableHead
+                    label="Name"
+                    sortKey="name"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="State / District"
+                    sortKey="state_district"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="Filings"
+                    sortKey="filing_count"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="Transactions"
+                    sortKey="transaction_count"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>

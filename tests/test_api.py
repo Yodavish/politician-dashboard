@@ -70,6 +70,23 @@ class TestPoliticians:
         assert body["pagination"]["total"] == 2
         assert body["pagination"]["offset"] == 1
 
+    def test_list_sorting_by_name_state_and_numeric_counts(self, api_client):
+        for sort, key in (
+            ("name", "name"),
+            ("state_district", "state_district"),
+            ("filing_count", "filing_count"),
+            ("transaction_count", "transaction_count"),
+        ):
+            body = api_client.get("/politicians", params={"sort": sort}).json()
+            values = [p[key] for p in body["items"]]
+            assert values == sorted(values), sort
+
+        descending = api_client.get(
+            "/politicians", params={"sort": "-transaction_count"}
+        ).json()["items"]
+        counts = [p["transaction_count"] for p in descending]
+        assert counts == sorted(counts, reverse=True)
+
     def test_politician_detail(self, api_client):
         resp = api_client.get(f"/politicians/{ADERHOLT_ID}")
         assert resp.status_code == 200
@@ -344,6 +361,74 @@ class TestSorting:
         items = resp.json()["items"]
         tickers = [t["ticker"] for t in items]
         assert tickers == sorted(tickers)
+
+    def test_all_recent_trade_sort_fields_are_supported(self, api_client):
+        for sort in (
+            "txn_date", "politician_name", "asset_name", "ticker", "txn_type",
+            "owner", "amount_min", "doc_id",
+        ):
+            response = api_client.get("/transactions", params={"sort": sort})
+            assert response.status_code == 200, sort
+            assert response.json()["pagination"]["total"] == 6
+
+    def test_recent_trade_text_and_date_sorting(self, api_client):
+        for sort, key in (
+            ("politician_name", "politician_name"),
+            ("asset_name", "asset_name"),
+            ("ticker", "ticker"),
+            ("txn_type", "txn_type"),
+            ("owner", "owner"),
+            ("doc_id", "doc_id"),
+        ):
+            items = api_client.get(
+                "/transactions", params={"sort": sort}
+            ).json()["items"]
+            values = [item[key] for item in items]
+            present = [value.lower() for value in values if value is not None]
+            assert present == sorted(present), sort
+            assert values == [value for value in values if value is not None] + [
+                value for value in values if value is None
+            ], sort
+
+        dates = api_client.get(
+            "/transactions", params={"sort": "txn_date"}
+        ).json()["items"]
+        assert [item["txn_date"] for item in dates] == sorted(
+            item["txn_date"] for item in dates
+        )
+        descending_dates = api_client.get(
+            "/transactions", params={"sort": "-txn_date"}
+        ).json()["items"]
+        assert [item["txn_date"] for item in descending_dates] == sorted(
+            (item["txn_date"] for item in descending_dates), reverse=True
+        )
+
+    def test_amount_sort_uses_numeric_bounds_and_paginates_after_sort(self, api_client):
+        all_items = api_client.get(
+            "/transactions", params={"sort": "amount_min"}
+        ).json()["items"]
+        expected = sorted(
+            all_items, key=lambda item: (item["amount_min"], item["amount_max"], item["id"])
+        )
+        assert [item["id"] for item in all_items] == [item["id"] for item in expected]
+
+        page = api_client.get(
+            "/transactions", params={"sort": "amount_min", "limit": 2, "offset": 2}
+        ).json()
+        assert [item["id"] for item in page["items"]] == [
+            item["id"] for item in expected[2:4]
+        ]
+        assert page["pagination"]["total"] == len(expected)
+
+    def test_null_tickers_sort_last_in_both_directions(self, api_client):
+        import psycopg
+
+        with psycopg.connect(api_client.app.state.database_url, autocommit=True) as conn:
+            conn.execute("UPDATE transactions SET ticker = NULL WHERE ticker = 'GSK'")
+
+        for sort in ("ticker", "-ticker"):
+            items = api_client.get("/transactions", params={"sort": sort}).json()["items"]
+            assert items[-1]["ticker"] is None
 
 
 class TestErrorHandling:

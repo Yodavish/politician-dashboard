@@ -5,6 +5,7 @@ import { fetchTransactions } from "@/api/client";
 import type { Transaction } from "@/api/types";
 import { useFilters } from "@/hooks/useFilters";
 import Pagination from "@/components/Pagination";
+import SortableTableHead from "@/components/SortableTableHead";
 import { Empty, ErrorMessage, Loading } from "@/components/State";
 import TransactionDate from "@/components/TransactionDate";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -46,6 +46,7 @@ interface TxnFilters {
   txn_date_max: string;
   amount_min: string;
   amount_max: string;
+  sort: string;
 }
 
 const defaults: TxnFilters = {
@@ -60,6 +61,7 @@ const defaults: TxnFilters = {
   txn_date_max: "",
   amount_min: "",
   amount_max: "",
+  sort: "-txn_date",
 };
 
 export default function TransactionsPage() {
@@ -84,6 +86,7 @@ export default function TransactionsPage() {
       txn_date_max: filters.txn_date_max || undefined,
       amount_min: filters.amount_min ? Number(filters.amount_min) : undefined,
       amount_max: filters.amount_max ? Number(filters.amount_max) : undefined,
+      sort: filters.sort,
     })
       .then((res) => {
         if (!cancelled) {
@@ -113,6 +116,7 @@ export default function TransactionsPage() {
     filters.txn_date_max,
     filters.amount_min,
     filters.amount_max,
+    filters.sort,
   ]);
 
   const patch = (p: Partial<TxnFilters>) => setFilters({ ...p, offset: 0 });
@@ -132,13 +136,54 @@ export default function TransactionsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Politician</TableHead>
-                  <TableHead>Asset / Ticker</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Filing</TableHead>
+                  <SortableTableHead
+                    label="Date"
+                    sortKey="txn_date"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="Politician"
+                    sortKey="politician_name"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="Asset"
+                    sortKey="asset_name"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="Ticker"
+                    sortKey="ticker"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="Type"
+                    sortKey="txn_type"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="Owner"
+                    sortKey="owner"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="Amount"
+                    sortKey="amount_min"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
+                  <SortableTableHead
+                    label="Filing"
+                    sortKey="doc_id"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -158,13 +203,16 @@ export default function TransactionsPage() {
                         name={t.politician_name}
                       />
                     </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{t.asset_name}</div>
-                      {t.ticker && (
-                        <span className="text-muted-foreground font-mono text-xs">
-                          {t.ticker}
-                        </span>
-                      )}
+                    <TableCell className="whitespace-normal">
+                      <div
+                        className="line-clamp-2 max-w-xs break-words font-medium"
+                        title={t.asset_name}
+                      >
+                        {t.asset_name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {t.ticker?.trim() || "—"}
                     </TableCell>
                     <TableCell>{txnTypeLabel(t.txn_type)}</TableCell>
                     <TableCell>{t.owner ?? "—"}</TableCell>
