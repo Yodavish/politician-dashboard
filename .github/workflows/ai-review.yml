@@ -29,12 +29,12 @@ jobs:
       # Check out only the base branch so the reviewer runs the repository's
       # own tools/ code rather than whatever the pull request may have changed.
       - name: Checkout base branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.base_ref }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 
@@ -48,7 +48,7 @@ jobs:
         run: curl -fsSL https://ollama.com/install.sh | sh
 
       - name: Cache Ollama models
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           # $HOME on ubuntu-latest runners is /home/runner; runner.home is not
           # a valid runner context property, so the path is hardcoded here and
