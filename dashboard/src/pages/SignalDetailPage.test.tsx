@@ -1,10 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { BuyClusterDetail } from "@/api/types";
+import type { SignalDetail } from "@/api/types";
 import SignalDetailPage from "./SignalDetailPage";
 
-const detail: BuyClusterDetail = {
+const detail: SignalDetail = {
   id: "bc_nvda_2025-04-03",
   type: "buy_cluster",
   label: "Buy cluster",
@@ -118,6 +118,24 @@ const detail: BuyClusterDetail = {
   ],
 };
 
+const sellDetail: SignalDetail = {
+  ...detail,
+  id: "sc_gs_2025-04-07",
+  type: "sell_cluster",
+  label: "Sell cluster",
+  ticker: "GS",
+  asset_name: "Goldman Sachs Group Common Stock (GS)",
+  span_days: 4,
+  rule: {
+    ...detail.rule,
+    type: "sell_cluster",
+    label: "Sell cluster",
+    txn_type: "S",
+    description:
+      "Three or more politicians disclosing open-market sales (S) of the same equity ticker.",
+  },
+};
+
 function mockDetail(body: unknown, status = 200) {
   const fetchMock = vi.fn(
     async (_input: RequestInfo | URL) =>
@@ -203,8 +221,72 @@ describe("SignalDetailPage", () => {
     await screen.findByText(/NVIDIA Corporation Common Stock/);
     expect(screen.getByRole("link", { name: /Back/ })).toHaveAttribute(
       "href",
-      "/signals",
+      "/signals?type=buy_cluster",
     );
+  });
+
+  it("summarizes a sell cluster in sales wording", async () => {
+    mockDetail(sellDetail);
+    renderAt(sellDetail.id);
+    await screen.findByText(/Goldman Sachs Group Common Stock/);
+    expect(
+      screen.getByText("3 politicians disclosed sales of GS."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Sell cluster")).toBeInTheDocument();
+    expect(screen.getByText("Sale (S)")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Three or more politicians disclosing open-market sales/),
+    ).toBeInTheDocument();
+  });
+
+  it("makes no intent, bearish, or pressure claim about a sell cluster", async () => {
+    mockDetail(sellDetail);
+    renderAt(sellDetail.id);
+    await screen.findByText(/Goldman Sachs Group Common Stock/);
+    const text = (document.body.textContent ?? "").toLowerCase();
+    for (const forbidden of [
+      "bearish",
+      "exit",
+      "selling pressure",
+      "dump",
+      "liquidat",
+      "cash out",
+    ]) {
+      expect(text).not.toContain(forbidden);
+    }
+    // Coordination is only ever mentioned to rule it out.
+    expect(text).toContain("not evidence that the politicians coordinated");
+  });
+
+  it("uses sale wording in the per-person and transaction summaries", async () => {
+    mockDetail(sellDetail);
+    renderAt(sellDetail.id);
+    await screen.findByText(/Goldman Sachs Group Common Stock/);
+    expect(
+      screen.getByText(/3 disclosed sales, ordered by transaction date/),
+    ).toBeInTheDocument();
+    // Every politician whose only disclosure was one transaction reads "sale".
+    expect(screen.getAllByText(/1 sale ·/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/1 purchase/)).toBeNull();
+  });
+
+  it("links a sell signal back to the sell list", async () => {
+    mockDetail(sellDetail);
+    renderAt(sellDetail.id);
+    await screen.findByText(/Goldman Sachs Group Common Stock/);
+    expect(screen.getByRole("link", { name: /Back/ })).toHaveAttribute(
+      "href",
+      "/signals?type=sell_cluster",
+    );
+  });
+
+  it("summarizes a buy cluster in purchase wording", async () => {
+    mockDetail(detail);
+    renderAt();
+    await screen.findByText(/NVIDIA Corporation Common Stock/);
+    expect(
+      screen.getByText("3 politicians disclosed purchases of NVDA."),
+    ).toBeInTheDocument();
   });
 
   it("reports a 404 from the API", async () => {

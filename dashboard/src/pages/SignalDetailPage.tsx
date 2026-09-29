@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { fetchSignal } from "@/api/client";
-import type { BuyClusterDetail } from "@/api/types";
+import type { SignalDetail } from "@/api/types";
+import { SIGNAL_TXN_NOUN } from "@/api/types";
 import { ErrorMessage, Loading } from "@/components/State";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +25,7 @@ import { formatAmount, txnTypeLabel } from "@/lib/format";
 
 export default function SignalDetailPage() {
   const { signalId = "" } = useParams();
-  const [signal, setSignal] = useState<BuyClusterDetail | null>(null);
+  const [signal, setSignal] = useState<SignalDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,12 +53,16 @@ export default function SignalDetailPage() {
   if (!signal) return null;
 
   const { rule } = signal;
+  const noun = SIGNAL_TXN_NOUN[signal.type];
 
   return (
     <section className="space-y-4">
       <p>
         <Button asChild variant="ghost" size="sm" className="-ml-2">
-          <Link to="/signals" className="flex items-center gap-1">
+          <Link
+            to={`/signals?type=${signal?.type ?? "buy_cluster"}`}
+            className="flex items-center gap-1"
+          >
             <ArrowLeft className="size-4" />
             Back
           </Link>
@@ -73,6 +78,11 @@ export default function SignalDetailPage() {
             {signal.label}
           </span>
         </div>
+        <p className="text-sm">
+          {signal.politician_count} politician
+          {signal.politician_count === 1 ? "" : "s"} disclosed{" "}
+          {noun.many} of {signal.ticker}.
+        </p>
         <p className="text-muted-foreground text-sm">
           {signal.asset_name ?? signal.ticker} · {signal.start_date} –{" "}
           {signal.end_date} ({signal.span_days} days)
@@ -154,7 +164,7 @@ export default function SignalDetailPage() {
                 </Link>{" "}
                 <span className="text-muted-foreground">
                   ({person.state_district}) · {person.transaction_count}{" "}
-                  {person.transaction_count === 1 ? "purchase" : "purchases"} ·{" "}
+                  {person.transaction_count === 1 ? noun.one : noun.many} ·{" "}
                   {formatAmount(person.amount_min, person.amount_max)}
                 </span>
               </li>
@@ -168,7 +178,7 @@ export default function SignalDetailPage() {
           <CardTitle className="text-base">Triggering transactions</CardTitle>
           <CardDescription>
             {signal.transaction_count} disclosed{" "}
-            {signal.transaction_count === 1 ? "purchase" : "purchases"}, ordered
+            {signal.transaction_count === 1 ? noun.one : noun.many}, ordered
             by transaction date.
           </CardDescription>
         </CardHeader>

@@ -1,6 +1,6 @@
 import type {
-  BuyCluster,
-  BuyClusterDetail,
+  Signal,
+  SignalDetail,
   FilingDetail,
   FilingSummary,
   Paginated,
@@ -81,13 +81,13 @@ export function fetchTransactions(
 
 export function fetchSignals(
   params?: Record<string, string | number | undefined>,
-): Promise<Paginated<BuyCluster>> {
+): Promise<Paginated<Signal>> {
   const qs = params ? "?" + toQuery(params) : "";
-  return fetchJson<Paginated<BuyCluster>>(`${BASE}/signals${qs}`);
+  return fetchJson<Paginated<Signal>>(`${BASE}/signals${qs}`);
 }
 
-export function fetchSignal(id: string): Promise<BuyClusterDetail> {
-  return fetchJson<BuyClusterDetail>(
+export function fetchSignal(id: string): Promise<SignalDetail> {
+  return fetchJson<SignalDetail>(
     `${BASE}/signals/${encodeURIComponent(id)}`,
   );
 }

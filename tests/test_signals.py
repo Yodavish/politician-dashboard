@@ -156,6 +156,82 @@ def _seed(url: str) -> None:
         _txn(0, txn_date=BASE + timedelta(days=2), ticker="MONEY",
              amount_min=50001, amount_max=100000)])
 
+    # --- Sell-cluster fixtures -------------------------------------------
+    # Same mechanics as the buy side, read from 'S' instead of 'P'.
+
+    put(people[Aderholt], "SELL3", [
+        _txn(0, txn_date=BASE, ticker="SELL3", txn_type="S")])
+    put(people[Pelosi], "SELL3", [
+        _txn(0, txn_date=BASE + timedelta(days=2), ticker="SELL3", txn_type="S")])
+    put(people[Johnson], "SELL3", [
+        _txn(0, txn_date=BASE + timedelta(days=4), ticker="SELL3", txn_type="S")])
+
+    put(people[Aderholt], "SELLTWO", [
+        _txn(0, txn_date=BASE, ticker="SELLTWO", txn_type="S")])
+    put(people[Pelosi], "SELLTWO", [
+        _txn(0, txn_date=BASE + timedelta(days=2), ticker="SELLTWO", txn_type="S")])
+
+    put(people[Aderholt], "SGAP7", [
+        _txn(0, txn_date=BASE, ticker="SGAP7", txn_type="S")])
+    put(people[Pelosi], "SGAP7", [
+        _txn(0, txn_date=BASE + timedelta(days=7), ticker="SGAP7", txn_type="S")])
+    put(people[Johnson], "SGAP7", [
+        _txn(0, txn_date=BASE + timedelta(days=14), ticker="SGAP7", txn_type="S")])
+
+    put(people[Aderholt], "SGAP8", [
+        _txn(0, txn_date=BASE, ticker="SGAP8", txn_type="S")])
+    put(people[Pelosi], "SGAP8", [
+        _txn(0, txn_date=BASE + timedelta(days=8), ticker="SGAP8", txn_type="S")])
+    put(people[Johnson], "SGAP8", [
+        _txn(0, txn_date=BASE + timedelta(days=16), ticker="SGAP8", txn_type="S")])
+
+    put(people[Aderholt], "SLONG", [
+        _txn(0, txn_date=BASE, ticker="SLONG", txn_type="S")])
+    put(people[Pelosi], "SLONG", [
+        _txn(0, txn_date=BASE + timedelta(days=7), ticker="SLONG", txn_type="S")])
+    put(people[Johnson], "SLONG", [
+        _txn(0, txn_date=BASE + timedelta(days=14), ticker="SLONG", txn_type="S")])
+    put(people[Greene], "SLONG", [
+        _txn(0, txn_date=BASE + timedelta(days=21), ticker="SLONG", txn_type="S")])
+
+    # One politician filing several sales counts once.
+    put(people[Aderholt], "SREPT", [
+        _txn(0, txn_date=BASE, ticker="SREPT", txn_type="S"),
+        _txn(1, txn_date=BASE + timedelta(days=1), ticker="SREPT", txn_type="S"),
+        _txn(2, txn_date=BASE + timedelta(days=2), ticker="SREPT", txn_type="S"),
+    ])
+    put(people[Pelosi], "SREPT", [
+        _txn(0, txn_date=BASE + timedelta(days=1), ticker="SREPT", txn_type="S")])
+    put(people[Johnson], "SREPT", [
+        _txn(0, txn_date=BASE + timedelta(days=2), ticker="SREPT", txn_type="S")])
+
+    # Partial sales are a separate disclosure category and must not be folded
+    # into the sell signal, however many politicians make them.
+    put(people[Aderholt], "SPART", [
+        _txn(0, txn_date=BASE, ticker="SPART", txn_type="S (partial)")])
+    put(people[Pelosi], "SPART", [
+        _txn(0, txn_date=BASE + timedelta(days=2), ticker="SPART",
+             txn_type="S (partial)")])
+    put(people[Johnson], "SPART", [
+        _txn(0, txn_date=BASE + timedelta(days=4), ticker="SPART",
+             txn_type="S (partial)")])
+
+    # Estate transfers are not open-market sales either.
+    put(people[Aderholt], "SESTATE", [
+        _txn(0, txn_date=BASE, ticker="SESTATE", txn_type="E")])
+    put(people[Pelosi], "SESTATE", [
+        _txn(0, txn_date=BASE + timedelta(days=2), ticker="SESTATE", txn_type="E")])
+    put(people[Johnson], "SESTATE", [
+        _txn(0, txn_date=BASE + timedelta(days=4), ticker="SESTATE", txn_type="E")])
+
+    # Sales on a future date are not evidence of anything yet.
+    put(people[Aderholt], "SFUTR", [
+        _txn(0, txn_date=FUTURE, ticker="SFUTR", txn_type="S")])
+    put(people[Pelosi], "SFUTR", [
+        _txn(0, txn_date=FUTURE, ticker="SFUTR", txn_type="S")])
+    put(people[Johnson], "SFUTR", [
+        _txn(0, txn_date=FUTURE, ticker="SFUTR", txn_type="S")])
+
 
 @pytest.fixture()
 def signal_client(temp_database_url: str):
@@ -172,6 +248,10 @@ def _signals(client, **params):
     resp = client.get("/signals", params=params)
     assert resp.status_code == 200, resp.text
     return {s["ticker"]: s for s in resp.json()["items"]}
+
+
+def _sell_signals(client, **params):
+    return _signals(client, type="sell_cluster", **params)
 
 
 class TestBuyClusterRule:
@@ -216,6 +296,144 @@ class TestBuyClusterRule:
 
     def test_future_transaction_dates_are_excluded(self, signal_client):
         assert "FUTR" not in _signals(signal_client)
+
+
+class TestSellClusterRule:
+    def test_three_selling_politicians_over_four_days_is_a_signal(
+        self, signal_client,
+    ):
+        got = _sell_signals(signal_client)
+        assert "SELL3" in got
+        cluster = got["SELL3"]
+        assert cluster["type"] == "sell_cluster"
+        assert cluster["label"] == "Sell cluster"
+        assert cluster["politician_count"] == 3
+        assert cluster["transaction_count"] == 3
+        assert cluster["span_days"] == 4
+        assert len(cluster["politicians"]) == 3
+        assert cluster["rule"]["txn_type"] == "S"
+        assert cluster["id"].startswith("sc_")
+
+    def test_two_selling_politicians_do_not_reach_the_threshold(
+        self, signal_client,
+    ):
+        assert "SELLTWO" not in _sell_signals(signal_client)
+
+    def test_gap_of_exactly_seven_days_stays_in_one_burst(self, signal_client):
+        cluster = _sell_signals(signal_client)["SGAP7"]
+        assert cluster["politician_count"] == 3
+        assert cluster["span_days"] == 14
+
+    def test_gap_of_eight_days_splits_bursts(self, signal_client):
+        assert "SGAP8" not in _sell_signals(signal_client)
+
+    def test_span_beyond_fourteen_days_is_rejected(self, signal_client):
+        # Four politicians with 7-day gaps, but a 21-day span.
+        assert "SLONG" not in _sell_signals(signal_client)
+
+    def test_repeated_sales_by_one_politician_count_once(self, signal_client):
+        cluster = _sell_signals(signal_client)["SREPT"]
+        assert cluster["politician_count"] == 3
+        assert cluster["transaction_count"] == 5
+
+    def test_partial_sales_are_excluded(self, signal_client):
+        assert "SPART" not in _sell_signals(signal_client)
+
+    def test_estate_transfers_are_excluded(self, signal_client):
+        assert "SESTATE" not in _sell_signals(signal_client)
+
+    def test_future_sale_dates_are_excluded(self, signal_client):
+        assert "SFUTR" not in _sell_signals(signal_client)
+
+    def test_purchases_are_excluded(self, signal_client):
+        # Every purchase fixture has three buyers, yet none may surface.
+        got = _sell_signals(signal_client)
+        for ticker in ("ALPHA", "GAP7", "REPT", "MONEY", "TWO"):
+            assert ticker not in got
+
+    def test_purchases_never_leak_into_the_sell_evidence(self, signal_client):
+        cluster = _sell_signals(signal_client)["SELL3"]
+        detail = signal_client.get(f"/signals/{cluster['id']}")
+        assert detail.status_code == 200, detail.text
+        assert {t["txn_type"] for t in detail.json()["transactions"]} == {"S"}
+
+
+class TestSignalTypeSelection:
+    def test_default_type_is_buy_cluster(self, signal_client):
+        items = signal_client.get("/signals").json()["items"]
+        assert {s["type"] for s in items} == {"buy_cluster"}
+        assert "SELL3" not in {s["ticker"] for s in items}
+
+    def test_explicit_buy_cluster_matches_the_default(self, signal_client):
+        default = signal_client.get("/signals").json()
+        explicit = signal_client.get(
+            "/signals", params={"type": "buy_cluster"}).json()
+        assert default["items"] == explicit["items"]
+
+    def test_buy_ids_are_unchanged_by_the_type_parameter(self, signal_client):
+        assert _signals(signal_client)["ALPHA"]["id"].startswith("bc_")
+
+    def test_sell_and_buy_ids_are_disjoint(self, signal_client):
+        buy = {s["id"] for s in signal_client.get("/signals").json()["items"]}
+        sell = {
+            s["id"] for s in
+            signal_client.get("/signals", params={"type": "sell_cluster"}).json()["items"]
+        }
+        assert buy and sell
+        assert not (buy & sell)
+
+    def test_rejects_unknown_signal_type(self, signal_client):
+        assert signal_client.get(
+            "/signals", params={"type": "hold_cluster"}).status_code == 400
+
+
+class TestSignalIdRouting:
+    def test_sc_id_resolves_a_sell_signal(self, signal_client):
+        cluster = _sell_signals(signal_client)["SELL3"]
+        resp = signal_client.get(f"/signals/{cluster['id']}")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["type"] == "sell_cluster"
+        assert body["label"] == "Sell cluster"
+        assert body["rule"]["txn_type"] == "S"
+        assert len(body["transactions"]) == 3
+
+    def test_bc_id_still_resolves_a_buy_signal(self, signal_client):
+        cluster = _signals(signal_client)["ALPHA"]
+        resp = signal_client.get(f"/signals/{cluster['id']}")
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["type"] == "buy_cluster"
+
+    def test_bc_prefix_does_not_resolve_a_sell_cluster(self, signal_client):
+        cluster = _sell_signals(signal_client)["SELL3"]
+        _, ticker, start = cluster["id"].split("_", 2)
+        resp = signal_client.get(f"/signals/bc_{ticker}_{start}")
+        assert resp.status_code == 404
+
+    def test_sc_prefix_does_not_resolve_a_buy_cluster(self, signal_client):
+        cluster = _signals(signal_client)["ALPHA"]
+        _, ticker, start = cluster["id"].split("_", 2)
+        resp = signal_client.get(f"/signals/sc_{ticker}_{start}")
+        assert resp.status_code == 404
+
+    def test_rejects_unknown_prefix(self, signal_client):
+        assert signal_client.get(
+            "/signals/xx_SELL3_2025-01-06").status_code == 404
+
+    def test_detail_matches_the_type_requested_in_the_list(self, signal_client):
+        # The id alone decides the type; a sell cluster's ticker and start date
+        # must not resolve through the buy path or vice versa.
+        for params, expected in (
+            ({}, "buy_cluster"),
+            ({"type": "buy_cluster"}, "buy_cluster"),
+            ({"type": "sell_cluster"}, "sell_cluster"),
+        ):
+            for signal in signal_client.get(
+                "/signals", params=params
+            ).json()["items"]:
+                body = signal_client.get(f"/signals/{signal['id']}").json()
+                assert body["type"] == expected
+                assert body["id"] == signal["id"]
 
 
 class TestAmounts:

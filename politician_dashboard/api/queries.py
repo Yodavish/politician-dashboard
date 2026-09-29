@@ -8,11 +8,7 @@ from __future__ import annotations
 
 from politician_dashboard.api import sql as _sql
 from politician_dashboard.api.signal_rules import (
-    BUY_CLUSTER_GAP_DAYS,
-    BUY_CLUSTER_MAX_SPAN_DAYS,
-    BUY_CLUSTER_MIN_POLITICIANS,
-    BUY_CLUSTER_TICKER_PATTERN,
-    BUY_CLUSTER_TXN_TYPE,
+    SIGNAL_RULES,
 )
 
 
@@ -273,15 +269,20 @@ def get_politician(conn, district: str, first: str, last: str):
     ).fetchone()
 
 
-# --- Buy-cluster signal --------------------------------------------------
+# --- Cluster signals -----------------------------------------------------
 #
 # The signal is computed on read with window functions, so there is no stored
 # table and no migration. See ``api/signal_rules.py`` for the parameters and
 # the caveat text returned to clients.
 #
+# One implementation serves every cluster type. Which transactions it reads
+# (``txn_type``), how tight a burst must be, how wide it may be, and which id
+# prefix it emits are all bound as parameters taken from ``SIGNAL_RULES``; only
+# ``type`` changes between one signal and the next.
+#
 # Cluster identity is ``(ticker, burst_id)``, and a burst's first transaction
 # date is unique within a ticker, so ``(ticker, start_date)`` alone identifies
-# a signal. That pair is what the public ``bc_<TICKER>_<YYYY-MM-DD>`` id
+# a signal. That pair is what the public ``<prefix><TICKER>_<YYYY-MM-DD>`` id
 # encodes, which lets the detail route look a signal up without storing or
 # decoding a hash.
 
@@ -295,7 +296,7 @@ _PERSON_KEY_SQL = r"""
 
 # Named placeholders (``%(name)s``) are used because the same fragment is
 # embedded in several statements with different trailing parameters.
-_BUY_CLUSTER_CTE = f"""
+_CLUSTER_CTE = f"""
 WITH events AS (
     SELECT
         t.id,
@@ -359,10 +360,11 @@ clusters AS (
 """
 
 # Shared summary projection so the list and detail responses are built from
-# exactly the same expression and cannot drift apart.
-_BUY_CLUSTER_SUMMARY_SELECT = """
+# exactly the same expression and cannot drift apart. The id prefix is bound
+# per signal type (``bc_`` for buy clusters, ``sc_`` for sell clusters).
+_CLUSTER_SUMMARY_SELECT = """
     SELECT
-        'bc_' || lower(c.ticker) || '_' || to_char(c.start_date, 'YYYY-MM-DD')
+        %(id_prefix)s || lower(c.ticker) || '_' || to_char(c.start_date, 'YYYY-MM-DD')
             AS id,
         c.ticker,
         c.asset_name,
@@ -401,18 +403,20 @@ _BUY_CLUSTER_SUMMARY_SELECT = """
 """
 
 
-def _buy_cluster_params() -> dict:
-    """Rule parameters bound into every buy-cluster statement."""
+def _cluster_params(signal_type: str) -> dict:
+    """Rule parameters bound into every cluster statement."""
+    rule = SIGNAL_RULES[signal_type]["rule"]
     return {
-        "txn_type": BUY_CLUSTER_TXN_TYPE,
-        "ticker_pattern": BUY_CLUSTER_TICKER_PATTERN,
-        "max_gap_days": BUY_CLUSTER_GAP_DAYS,
-        "min_politicians": BUY_CLUSTER_MIN_POLITICIANS,
-        "max_span_days": BUY_CLUSTER_MAX_SPAN_DAYS,
+        "id_prefix": SIGNAL_RULES[signal_type]["id_prefix"],
+        "txn_type": rule["txn_type"],
+        "ticker_pattern": rule["ticker_pattern"],
+        "max_gap_days": rule["max_gap_days"],
+        "min_politicians": rule["min_politicians"],
+        "max_span_days": rule["max_span_days"],
     }
 
 
-def _buy_cluster_filters(filters: dict, params: dict) -> list[str]:
+def _cluster_filters(filters: dict, params: dict) -> list[str]:
     """Build post-cluster filter clauses.
 
     Filters are applied to the *computed* clusters rather than to the
@@ -425,8 +429,8 @@ def _buy_cluster_filters(filters: dict, params: dict) -> list[str]:
         clauses.append("lower(c.ticker) = lower(%(filter_ticker)s)")
         params["filter_ticker"] = filters["ticker"]
     # Narrows already-computed clusters by width. The clustering rule itself
-    # still caps a burst at BUY_CLUSTER_MAX_SPAN_DAYS, so a ceiling above
-    # that value is accepted but cannot exclude anything.
+    # still caps a burst at its own max_span_days, so a ceiling above that
+    # value is accepted but cannot exclude anything.
     if filters.get("span_days_max") is not None:
         clauses.append("c.span_days <= %(span_days_max)s")
         params["span_days_max"] = filters["span_days_max"]
@@ -455,15 +459,15 @@ def _buy_cluster_filters(filters: dict, params: dict) -> list[str]:
     return clauses
 
 
-def list_buy_clusters(
-    conn, *, filters: dict, sort_key: str, limit: int, offset: int,
+def list_clusters(
+    conn, *, signal_type: str, filters: dict, sort_key: str, limit: int, offset: int,
 ):
-    params = _buy_cluster_params()
-    clauses = _buy_cluster_filters(filters, params)
+    params = _cluster_params(signal_type)
+    clauses = _cluster_filters(filters, params)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
 
     total = int(conn.execute(
-        f"{_BUY_CLUSTER_CTE} SELECT count(*) FROM clusters c {where}", params
+        f"{_CLUSTER_CTE} SELECT count(*) FROM clusters c {where}", params
     ).fetchone()[0])
 
     column, descending = _sql.parse_sort(
@@ -475,8 +479,8 @@ def list_buy_clusters(
     # ordering total and keeps offset pagination stable across requests.
     rows = conn.execute(
         f"""
-        {_BUY_CLUSTER_CTE}
-        {_BUY_CLUSTER_SUMMARY_SELECT}
+        {_CLUSTER_CTE}
+        {_CLUSTER_SUMMARY_SELECT}
         {where}
         ORDER BY {column} {order} NULLS LAST, c.ticker, c.start_date
         LIMIT %(limit)s OFFSET %(offset)s
@@ -486,10 +490,10 @@ def list_buy_clusters(
     return total, rows
 
 
-def get_buy_cluster(conn, ticker: str, start_date: str):
+def get_cluster(conn, *, signal_type: str, ticker: str, start_date: str):
     """Return ``(summary_row, transaction_rows)`` for one signal, or ``None``."""
     params = {
-        **_buy_cluster_params(),
+        **_cluster_params(signal_type),
         "signal_ticker": ticker,
         "signal_start_date": start_date,
     }
@@ -498,14 +502,14 @@ def get_buy_cluster(conn, ticker: str, start_date: str):
         "AND c.start_date = %(signal_start_date)s"
     )
     summary = conn.execute(
-        f"{_BUY_CLUSTER_CTE} {_BUY_CLUSTER_SUMMARY_SELECT} {where}", params
+        f"{_CLUSTER_CTE} {_CLUSTER_SUMMARY_SELECT} {where}", params
     ).fetchone()
     if summary is None:
         return None
 
     transactions = conn.execute(
         f"""
-        {_BUY_CLUSTER_CTE}
+        {_CLUSTER_CTE}
         SELECT b.id, b.filing_id, b.doc_id, b.sequence, b.person_key,
                b.first_name, b.last_name, b.state_district, b.txn_type,
                b.txn_date, b.notification_date, b.amount_min, b.amount_max,

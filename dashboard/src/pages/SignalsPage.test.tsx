@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { BuyCluster } from "@/api/types";
+import type { Signal } from "@/api/types";
 import SignalsPage from "./SignalsPage";
 
-const nvda: BuyCluster = {
+const nvda: Signal = {
   id: "bc_nvda_2025-04-03",
   type: "buy_cluster",
   label: "Buy cluster",
@@ -50,12 +50,23 @@ const nvda: BuyCluster = {
   limitations: ["A cluster reflects disclosure timing only."],
 };
 
-function page(items: BuyCluster[], total = items.length) {
+function page(items: Signal[], total = items.length) {
   return {
     items,
     pagination: { limit: 25, offset: 0, total, next_url: null, prev_url: null },
   };
 }
+
+const gs: Signal = {
+  ...nvda,
+  id: "sc_gs_2025-04-07",
+  type: "sell_cluster",
+  label: "Sell cluster",
+  ticker: "GS",
+  asset_name: "Goldman Sachs Group Common Stock (GS)",
+  span_days: 4,
+  rule: { ...nvda.rule, type: "sell_cluster", label: "Sell cluster", txn_type: "S" },
+};
 
 function lastQuery(fetchMock: ReturnType<typeof vi.fn>): URLSearchParams {
   const call = fetchMock.mock.calls.at(-1)![0];
@@ -375,5 +386,115 @@ describe("SignalsPage", () => {
     expect(
       await screen.findByText(/invalid sort key: nope/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("SignalsPage signal type", () => {
+  it("defaults to buy clusters", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(page([nvda])), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <MemoryRouter initialEntries={["/signals"]}>
+        <SignalsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("NVDA");
+    expect(lastQuery(fetchMock).get("type")).toBe("buy_cluster");
+    expect(
+      screen.getByRole("button", { name: "Buy clusters" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Sell clusters" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("switches to sell clusters and sends the new type", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(page([nvda])), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <MemoryRouter initialEntries={["/signals"]}>
+        <SignalsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("NVDA");
+
+    fireEvent.click(screen.getByRole("button", { name: "Sell clusters" }));
+
+    await waitFor(() =>
+      expect(lastQuery(fetchMock).get("type")).toBe("sell_cluster"),
+    );
+  });
+
+  it("renders sell cluster cards when the sell type is selected", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(page([gs])), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <MemoryRouter initialEntries={["/signals?type=sell_cluster"]}>
+        <SignalsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("GS");
+    expect(screen.getByText("Sell cluster")).toBeInTheDocument();
+    expect(
+      screen.getByText("Politicians who disclosed sales"),
+    ).toBeInTheDocument();
+  });
+
+  it("restores the type from the URL", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(page([gs])), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <MemoryRouter initialEntries={["/signals?type=sell_cluster"]}>
+        <SignalsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("GS");
+    expect(lastQuery(fetchMock).get("type")).toBe("sell_cluster");
+    expect(
+      screen.getByRole("button", { name: "Sell clusters" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Buy clusters" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("falls back to buy clusters for an unrecognized type in the URL", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(page([nvda])), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <MemoryRouter initialEntries={["/signals?type=hold_cluster"]}>
+        <SignalsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("NVDA");
+    expect(lastQuery(fetchMock).get("type")).toBe("buy_cluster");
+  });
+
+  it("resets pagination when the type changes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(page([nvda], 80)), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <MemoryRouter initialEntries={["/signals?offset=50"]}>
+        <SignalsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("NVDA");
+    expect(lastQuery(fetchMock).get("offset")).toBe("50");
+
+    fireEvent.click(screen.getByRole("button", { name: "Sell clusters" }));
+
+    await waitFor(() => expect(lastQuery(fetchMock).get("offset")).toBe("0"));
   });
 });

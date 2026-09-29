@@ -152,7 +152,7 @@ class SignalTransaction(BaseModel):
     asset_type_code: str | None
 
 
-class BuyCluster(BaseModel):
+class Signal(BaseModel):
     """Summary form; the detail endpoint adds ``transactions``."""
 
     model_config = ConfigDict(extra="ignore")
@@ -174,7 +174,7 @@ class BuyCluster(BaseModel):
     limitations: list[str]
 
 
-class BuyClusterDetail(BuyCluster):
+class SignalDetail(Signal):
     transactions: list[SignalTransaction]
 
 

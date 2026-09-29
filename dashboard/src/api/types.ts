@@ -98,7 +98,22 @@ export interface Paginated<T> {
 // are always visible, and `limitations` carries the caveats that keep a
 // disclosure pattern from reading as a conclusion.
 
-export type SignalType = "buy_cluster";
+export type SignalType = "buy_cluster" | "sell_cluster";
+
+/**
+ * Transaction wording for user-facing copy, keyed by signal type.
+ *
+ * Deliberately descriptive: it names what was disclosed and nothing about
+ * why. A sell cluster says "sales", never "exit", "bearish" or "selling
+ * pressure".
+ */
+export const SIGNAL_TXN_NOUN: Record<
+  SignalType,
+  { one: string; many: string }
+> = {
+  buy_cluster: { one: "purchase", many: "purchases" },
+  sell_cluster: { one: "sale", many: "sales" },
+};
 
 export interface SignalRule {
   type: SignalType;
@@ -141,7 +156,7 @@ export interface SignalTransaction {
   asset_type_code: string | null;
 }
 
-export interface BuyCluster {
+export interface Signal {
   id: string;
   type: SignalType;
   label: string;
@@ -159,6 +174,6 @@ export interface BuyCluster {
   limitations: string[];
 }
 
-export interface BuyClusterDetail extends BuyCluster {
+export interface SignalDetail extends Signal {
   transactions: SignalTransaction[];
 }

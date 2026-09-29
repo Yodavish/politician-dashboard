@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { fetchSignals } from "@/api/client";
-import type { BuyCluster } from "@/api/types";
+import type { Signal, SignalType } from "@/api/types";
 import { useFilters } from "@/hooks/useFilters";
 import Pagination from "@/components/Pagination";
 import SignalCard from "@/components/SignalCard";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 interface SignalFilters {
+  type: SignalType;
   limit: number;
   offset: number;
   ticker: string;
@@ -22,6 +23,7 @@ interface SignalFilters {
 }
 
 const defaults: SignalFilters = {
+  type: "buy_cluster",
   limit: 25,
   offset: 0,
   ticker: "",
@@ -31,6 +33,14 @@ const defaults: SignalFilters = {
   end_date: "",
   sort: "-politician_count",
 };
+
+// The signal to compute. Both share one clustering rule apart from the
+// transaction type they read, so they are the same page with a different
+// data source rather than two different pages.
+const TYPES: { label: string; value: SignalType }[] = [
+  { label: "Buy clusters", value: "buy_cluster" },
+  { label: "Sell clusters", value: "sell_cluster" },
+];
 
 const SORTS = [
   { label: "Politicians", key: "politician_count" },
@@ -51,7 +61,7 @@ const SPAN_OPTIONS = [
 
 export default function SignalsPage() {
   const [filters, setFilters] = useFilters<SignalFilters>(defaults);
-  const [data, setData] = useState<{ items: BuyCluster[]; total: number } | null>(null);
+  const [data, setData] = useState<{ items: Signal[]; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -61,11 +71,19 @@ export default function SignalsPage() {
     ? filters.span_days_max
     : "";
 
+  // Treat an unrecognized value in the URL as the default rather than
+  // forwarding it to the API, so a hand-edited or stale link cannot trigger
+  // a 422.
+  const signalType = TYPES.some((t) => t.value === filters.type)
+    ? filters.type
+    : defaults.type;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     fetchSignals({
+      type: signalType,
       limit: filters.limit,
       offset: filters.offset,
       ticker: filters.ticker || undefined,
@@ -90,6 +108,7 @@ export default function SignalsPage() {
   }, [
     filters.ticker,
     filters.politician_id,
+    signalType,
     spanValue,
     filters.start_date,
     filters.end_date,
@@ -121,6 +140,29 @@ export default function SignalsPage() {
           Patterns computed from the disclosures above. Each one links to the
           transactions that triggered it.
         </p>
+      </div>
+
+      <div
+        className="flex items-center gap-1"
+        role="group"
+        aria-label="Signal type"
+      >
+        {TYPES.map((t) => {
+          const active = signalType === t.value;
+          return (
+            <Button
+              key={t.value}
+              type="button"
+              size="sm"
+              variant={active ? "default" : "outline"}
+              aria-pressed={active}
+              className={active ? "h-9 px-3" : "text-muted-foreground h-9 px-3"}
+              onClick={() => patch({ type: t.value })}
+            >
+              {t.label}
+            </Button>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">

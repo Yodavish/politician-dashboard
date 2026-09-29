@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import type { BuyCluster } from "@/api/types";
+import type { Signal } from "@/api/types";
+import { SIGNAL_TXN_NOUN } from "@/api/types";
 import { formatAmount } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,11 +16,15 @@ import {
  * Presentation shell shared by every signal card.
  *
  * The card shows what the data shows and nothing more: how many politicians
- * disclosed purchases, over what window, and for what disclosed amount
- * range. It deliberately avoids any implication that the politicians acted
- * together, and always links through to the evidence on the detail page.
+ * disclosed the transactions, over what window, and for what disclosed amount
+ * range. The wording is derived from the signal's own type, so a buy cluster
+ * reads "purchases" and a sell cluster reads "sales" without either implying
+ * why anyone acted. It deliberately avoids any suggestion that the politicians
+ * acted together, and always links through to the evidence on the detail page.
  */
-export default function SignalCard({ signal }: { signal: BuyCluster }) {
+export default function SignalCard({ signal }: { signal: Signal }) {
+  const noun = SIGNAL_TXN_NOUN[signal.type].many;
+
   return (
     <Card data-testid="signal-card">
       <CardHeader>
@@ -69,7 +74,7 @@ export default function SignalCard({ signal }: { signal: BuyCluster }) {
 
         <div>
           <h3 className="text-muted-foreground text-xs font-medium">
-            Politicians who disclosed purchases
+            Politicians who disclosed {noun}
           </h3>
           <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
             {signal.politicians.map((person) => (

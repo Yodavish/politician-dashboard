@@ -7,12 +7,7 @@ by the Pydantic response models. ``raw_pdf`` is never selected or serialized.
 from __future__ import annotations
 
 from politician_dashboard.api.politicians import politician_id
-from politician_dashboard.api.signal_rules import (
-    BUY_CLUSTER,
-    BUY_CLUSTER_LABEL,
-    BUY_CLUSTER_LIMITATIONS,
-    BUY_CLUSTER_RULE,
-)
+from politician_dashboard.api.signal_rules import SIGNAL_RULES
 
 
 def filing_dict(row) -> dict:
@@ -129,15 +124,16 @@ def _signal_politician(person: dict) -> dict:
     }
 
 
-def buy_cluster_summary_dict(row) -> dict:
+def cluster_summary_dict(row, signal_type: str) -> dict:
     (
         id_, ticker, asset_name, transaction_count, politician_count,
         start_date, end_date, span_days, total_min, total_max, politicians,
     ) = row
+    entry = SIGNAL_RULES[signal_type]
     return {
         "id": id_,
-        "type": BUY_CLUSTER,
-        "label": BUY_CLUSTER_LABEL,
+        "type": signal_type,
+        "label": entry["rule"]["label"],
         "ticker": ticker,
         "asset_name": asset_name,
         "transaction_count": int(transaction_count),
@@ -148,8 +144,8 @@ def buy_cluster_summary_dict(row) -> dict:
         "total_min": float(total_min),
         "total_max": float(total_max),
         "politicians": [_signal_politician(p) for p in politicians],
-        "rule": BUY_CLUSTER_RULE,
-        "limitations": BUY_CLUSTER_LIMITATIONS,
+        "rule": entry["rule"],
+        "limitations": entry["limitations"],
     }
 
 
@@ -179,8 +175,8 @@ def signal_transaction_dict(row) -> dict:
     }
 
 
-def buy_cluster_detail_dict(summary_row, transaction_rows) -> dict:
-    result = buy_cluster_summary_dict(summary_row)
+def cluster_detail_dict(summary_row, transaction_rows, signal_type: str) -> dict:
+    result = cluster_summary_dict(summary_row, signal_type)
     result["transactions"] = [
         signal_transaction_dict(row) for row in transaction_rows
     ]

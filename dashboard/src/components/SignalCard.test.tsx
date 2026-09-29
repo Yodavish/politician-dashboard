@@ -1,10 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import type { BuyCluster } from "@/api/types";
+import type { Signal } from "@/api/types";
 import SignalCard from "./SignalCard";
 
-export const cluster: BuyCluster = {
+export const cluster: Signal = {
   id: "bc_nvda_2025-04-03",
   type: "buy_cluster",
   label: "Buy cluster",
@@ -61,9 +61,25 @@ export const cluster: BuyCluster = {
   ],
 };
 
+export const sellCluster: Signal = {
+  ...cluster,
+  id: "sc_gs_2025-04-07",
+  type: "sell_cluster",
+  label: "Sell cluster",
+  ticker: "GS",
+  asset_name: "Goldman Sachs Group Common Stock (GS)",
+  transaction_count: 5,
+  politician_count: 5,
+  start_date: "2025-04-07",
+  end_date: "2025-04-11",
+  span_days: 4,
+  total_min: 160200,
+  total_max: 300000,
+  rule: { ...cluster.rule, type: "sell_cluster", label: "Sell cluster", txn_type: "S" },
+};
+
 describe("SignalCard", () => {
-  it("shows the ticker, label, and asset name", () => {
-    render(
+  it("shows the ticker, label, and asset name", () => {    render(
       <MemoryRouter>
         <SignalCard signal={cluster} />
       </MemoryRouter>,
@@ -98,6 +114,49 @@ describe("SignalCard", () => {
     );
     expect(screen.getByText("Disclosed amount (range)")).toBeInTheDocument();
     expect(screen.getByText("$8,008 - $120,000")).toBeInTheDocument();
+  });
+
+  it("names the transaction noun for the signal's own type", () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <SignalCard signal={cluster} />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByText("Politicians who disclosed purchases"),
+    ).toBeInTheDocument();
+    unmount();
+
+    render(
+      <MemoryRouter>
+        <SignalCard signal={sellCluster} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Sell cluster")).toBeInTheDocument();
+    expect(
+      screen.getByText("Politicians who disclosed sales"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Politicians who disclosed purchases"),
+    ).toBeNull();
+  });
+
+  it("describes a sell cluster without implying intent", () => {
+    render(
+      <MemoryRouter>
+        <SignalCard signal={sellCluster} />
+      </MemoryRouter>,
+    );
+    const text = (document.body.textContent ?? "").toLowerCase();
+    for (const forbidden of [
+      "bearish",
+      "exit",
+      "selling pressure",
+      "dump",
+      "liquidat",
+    ]) {
+      expect(text).not.toContain(forbidden);
+    }
   });
 
   it("names every politician and links to their profile", () => {
