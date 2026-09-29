@@ -65,7 +65,8 @@ def transaction_dict(row) -> dict:
         "txn_date": txn_date,
         "notification_date": notification_date,
         "amount_min": float(amount_min),
-        "amount_max": float(amount_max),
+        # None marks an open-ended amount ("Over $X"); float(None) would raise.
+        "amount_max": None if amount_max is None else float(amount_max),
         "amount_raw": amount_raw,
         "owner": owner_token,
         "filing_status": filing_status,
@@ -110,7 +111,9 @@ def politician_dict(row) -> dict:
 #
 # Amounts are disclosure ranges. A signal's ``total_min``/``total_max`` are
 # sums of the underlying ranges, which is the only honest total available;
-# they are never collapsed into a midpoint or a single exact figure.
+# they are never collapsed into a midpoint or a single exact figure. When any
+# member amount is open-ended ("Over $X") the summed upper bound is unknown and
+# the total is None, which the dashboard renders as "Over $X".
 
 
 def _signal_politician(person: dict) -> dict:
@@ -120,7 +123,11 @@ def _signal_politician(person: dict) -> dict:
         "state_district": person["state_district"],
         "transaction_count": int(person["transaction_count"]),
         "amount_min": float(person["amount_min"]),
-        "amount_max": float(person["amount_max"]),
+        "amount_max": (
+            None
+            if person["amount_max"] is None
+            else float(person["amount_max"])
+        ),
     }
 
 
@@ -142,7 +149,8 @@ def cluster_summary_dict(row, signal_type: str) -> dict:
         "end_date": end_date,
         "span_days": int(span_days),
         "total_min": float(total_min),
-        "total_max": float(total_max),
+        # None when any clustered amount is open-ended; float(None) would raise.
+        "total_max": None if total_max is None else float(total_max),
         "politicians": [_signal_politician(p) for p in politicians],
         "rule": entry["rule"],
         "limitations": entry["limitations"],
@@ -166,7 +174,8 @@ def signal_transaction_dict(row) -> dict:
         "txn_date": txn_date,
         "notification_date": notification_date,
         "amount_min": float(amount_min),
-        "amount_max": float(amount_max),
+        # None marks an open-ended amount ("Over $X"); float(None) would raise.
+        "amount_max": None if amount_max is None else float(amount_max),
         "amount_raw": amount_raw,
         "owner": owner_token,
         "asset_name": asset_name,

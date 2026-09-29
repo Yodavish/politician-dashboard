@@ -349,7 +349,14 @@ clusters AS (
         count(*)::int AS transaction_count,
         count(DISTINCT person_key)::int AS politician_count,
         sum(amount_min) AS total_min,
-        sum(amount_max) AS total_max,
+        -- total_max is the upper bound of the summed cluster. A cluster holding
+        -- an open-ended amount ("Over $X") has no upper bound, so it is NULL.
+        -- sum() alone would skip those rows and report a total that silently
+        -- understates the cluster, so the NULL is detected explicitly.
+        CASE
+            WHEN count(*) FILTER (WHERE amount_max IS NULL) > 0 THEN NULL
+            ELSE sum(amount_max)
+        END AS total_max,
         mode() WITHIN GROUP (ORDER BY asset_name)
             FILTER (WHERE asset_name IS NOT NULL) AS asset_name
     FROM bursts
@@ -394,7 +401,13 @@ _CLUSTER_SUMMARY_SELECT = """
                    min(b.state_district) AS state_district,
                    count(*)::int AS transaction_count,
                    sum(b.amount_min) AS amount_min,
-                   sum(b.amount_max) AS amount_max
+                   -- Same open-ended rule as clusters.total_max: a politician
+                   -- with an "Over $X" amount has no summed upper bound.
+                   CASE
+                       WHEN count(*) FILTER (WHERE b.amount_max IS NULL) > 0
+                       THEN NULL
+                       ELSE sum(b.amount_max)
+                   END AS amount_max
             FROM bursts b
             WHERE b.ticker = c.ticker AND b.burst_id = c.burst_id
             GROUP BY b.person_key

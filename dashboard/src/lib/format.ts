@@ -1,4 +1,11 @@
-export function formatAmount(min: number, max: number): string {
+// A null max means the source disclosed only a lower bound with no upper
+// bound (the Senate eFD "Over $X" tier). Rendering that as a range would
+// claim a precision the disclosure withholds, so it shows the open-ended
+// form instead.
+export function formatAmount(min: number, max: number | null): string {
+  if (max === null) {
+    return `Over $${min.toLocaleString()}`;
+  }
   return `$${min.toLocaleString()} - $${max.toLocaleString()}`;
 }
 

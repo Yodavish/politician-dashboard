@@ -156,6 +156,19 @@ def _seed(url: str) -> None:
         _txn(0, txn_date=BASE + timedelta(days=2), ticker="MONEY",
              amount_min=50001, amount_max=100000)])
 
+    # A cluster containing one open-ended amount ("Over $X"). The summed
+    # upper bound is unknown, so total_max must be null rather than a sum that
+    # silently omits the open-ended member.
+    put(people[Aderholt], "OPEN", [
+        _txn(0, txn_date=BASE, ticker="OPEN", amount_min=1001, amount_max=15000)])
+    put(people[Pelosi], "OPEN", [
+        _txn(0, txn_date=BASE + timedelta(days=1), ticker="OPEN",
+             amount_min=15001, amount_max=50000)])
+    put(people[Johnson], "OPEN", [
+        _txn(0, txn_date=BASE + timedelta(days=2), ticker="OPEN",
+             amount_min=50000000, amount_max=None,
+             amount_raw="Over $50,000,000")])
+
     # --- Sell-cluster fixtures -------------------------------------------
     # Same mechanics as the buy side, read from 'S' instead of 'P'.
 
@@ -454,6 +467,28 @@ class TestAmounts:
         by_id = {p["id"]: p for p in cluster["politicians"]}
         assert by_id["ca11_nancy_pelosi"]["amount_min"] == 15001
         assert by_id["ca11_nancy_pelosi"]["amount_max"] == 50000
+
+    def test_open_ended_member_makes_the_cluster_total_max_null(
+        self, signal_client
+    ):
+        """A cluster with one "Over $X" member has no summed upper bound.
+
+        sum() alone would skip the null and report a total that silently
+        understates the cluster, so total_max must be null. total_min still
+        sums the lower bounds, which are all known.
+        """
+        cluster = _signals(signal_client)["OPEN"]
+        assert cluster["total_min"] == pytest.approx(1001 + 15001 + 50000000)
+        assert cluster["total_max"] is None
+
+        # The open-ended politician keeps a null amount_max; the others are
+        # unaffected, so bounded members still serialize normally.
+        maxes = [
+            p["amount_max"] for p in cluster["politicians"]
+            if p["amount_max"] is not None
+        ]
+        assert sorted(maxes) == [15000, 50000]
+        assert sum(p["amount_max"] is None for p in cluster["politicians"]) == 1
 
 
 class TestSignalId:

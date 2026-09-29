@@ -420,6 +420,27 @@ class TestSorting:
         ]
         assert page["pagination"]["total"] == len(expected)
 
+    def test_open_ended_amount_serializes_amount_max_as_null(self, api_client):
+        """An eFD "Over $X" amount must serialize as (min, null).
+
+        float(None) would raise inside the serializer, so this also guards
+        against a 500 on the transaction list.
+        """
+        import psycopg
+
+        with psycopg.connect(api_client.app.state.database_url, autocommit=True) as conn:
+            conn.execute(
+                "UPDATE transactions SET amount_max = NULL, "
+                "amount_min = 50000000, amount_raw = 'Over $50,000,000' "
+                "WHERE id = (SELECT min(id) FROM transactions)"
+            )
+
+        items = api_client.get("/transactions").json()["items"]
+        open_ended = [i for i in items if i["amount_raw"] == "Over $50,000,000"]
+        assert len(open_ended) == 1
+        assert open_ended[0]["amount_min"] == 50000000
+        assert open_ended[0]["amount_max"] is None
+
     def test_null_tickers_sort_last_in_both_directions(self, api_client):
         import psycopg
 

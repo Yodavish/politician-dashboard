@@ -32,7 +32,9 @@ class Transaction:
     txn_date: date
     notification_date: date
     amount_min: int
-    amount_max: int
+    # None means the source stated a lower bound but no upper bound (the eFD
+    # "Over $X" tier). It is never coerced to 0 or to amount_min.
+    amount_max: int | None
     amount_raw: str
     txn_source_id: str | None = None
     owner_token: str | None = None

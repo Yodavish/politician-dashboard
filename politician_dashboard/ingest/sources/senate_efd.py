@@ -389,6 +389,9 @@ SENATE_TXN_TYPES = {
 }
 
 _AMOUNT_VALUE_RE = re.compile(r"\$([\d,]+)")
+# The eFD writes its unbounded top tier as "Over $50,000,000" rather than a
+# range, so the cell holds a lower bound with no upper bound.
+_AMOUNT_OPEN_ENDED_RE = re.compile(r"\bover\s+\$", re.IGNORECASE)
 
 
 def _map_txn_type(raw: str) -> str:
@@ -400,14 +403,23 @@ def _map_txn_type(raw: str) -> str:
     return SENATE_TXN_TYPES[normalized]
 
 
-def _parse_amount_bounds(amount_raw: str) -> tuple[int, int]:
-    """Parse ``$250,001 - $500,000`` into ``(250001, 500000)``."""
+def _parse_amount_bounds(amount_raw: str) -> tuple[int, int | None]:
+    """Parse a Senate amount cell into ``(amount_min, amount_max)``.
+
+    Bounded cells such as ``$250,001 - $500,000`` yield both bounds. The eFD
+    reports the top disclosure tier as an open-ended ``Over $50,000,000``, which
+    states a lower bound and no upper bound, so it yields ``(50000000, None)``.
+    A missing upper bound is preserved as ``None`` and never coerced to a
+    number, so stored amounts cannot claim a precision the source withholds.
+    """
     values = [
         int(value.replace(",", ""))
         for value in _AMOUNT_VALUE_RE.findall(amount_raw)
     ]
     if not values:
         raise SenateDetailError(f"No dollar amount in: {amount_raw!r}")
+    if _AMOUNT_OPEN_ENDED_RE.search(amount_raw):
+        return values[0], None
     return min(values), max(values)
 
 
@@ -485,9 +497,9 @@ def parse_ptr_view_html(data: bytes) -> list[dict[str, object]]:
         txn_date = _parse_date_received(row[1])
         if txn_date is None:
             continue
-        if not row[7].strip().startswith("$"):
-            raise SenateDetailError(f"Transaction row has no amount: {row!r}")
-
+        # A row with no usable dollar amount is malformed and must be reported
+        # rather than stored. The open-ended "Over $X" form is valid and is
+        # handled by _parse_amount_bounds as a lower bound with no upper bound.
         amount_min, amount_max = _parse_amount_bounds(row[7])
         transactions.append(
             {

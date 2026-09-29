@@ -51,7 +51,7 @@ export interface Transaction {
   txn_date: string;
   notification_date: string;
   amount_min: number;
-  amount_max: number;
+  amount_max: number | null;
   amount_raw: string;
   owner: string | null;
   filing_status: string | null;
@@ -134,7 +134,7 @@ export interface SignalPolitician {
   state_district: string;
   transaction_count: number;
   amount_min: number;
-  amount_max: number;
+  amount_max: number | null;
 }
 
 export interface SignalTransaction {
@@ -148,7 +148,7 @@ export interface SignalTransaction {
   txn_date: string;
   notification_date: string;
   amount_min: number;
-  amount_max: number;
+  amount_max: number | null;
   amount_raw: string;
   owner: string | null;
   asset_name: string;
@@ -168,7 +168,7 @@ export interface Signal {
   end_date: string;
   span_days: number;
   total_min: number;
-  total_max: number;
+  total_max: number | null;
   politicians: SignalPolitician[];
   rule: SignalRule;
   limitations: string[];

@@ -176,7 +176,10 @@ def _to_transactions(parsed: dict) -> list[Transaction]:
                 txn_date=item["txn_date"],
                 notification_date=item["notification_date"],
                 amount_min=item.get("amount_min") or 0,
-                amount_max=item.get("amount_max") or 0,
+                # A missing amount_max is a genuine open-ended amount, so it is
+                # passed through as None. Using ``or 0`` here would silently
+                # turn "Over $50,000,000" into a $0 - $50,000,000 range.
+                amount_max=item.get("amount_max"),
                 amount_raw=item.get("amount_raw") or "",
                 txn_source_id=item.get("source_id"),
                 owner_token=item.get("owner"),

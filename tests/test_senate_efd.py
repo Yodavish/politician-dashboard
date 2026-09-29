@@ -210,12 +210,14 @@ class TestViewUrl:
         )
 
 
-def _single_row_html(type_label: str) -> bytes:
+def _single_row_html(
+    type_label: str, *, amount: str = "$1,001 - $15,000"
+) -> bytes:
     return (
         "<table><tbody><tr>"
         "<td>1</td><td>06/22/2026</td><td>Self</td><td>AAPL</td>"
         "<td>Apple Inc.</td><td>ST</td>"
-        f"<td>{type_label}</td><td>$1,001 - $15,000</td><td>--</td>"
+        f"<td>{type_label}</td><td>{amount}</td><td>--</td>"
         "</tr></tbody></table>"
     ).encode()
 
@@ -249,9 +251,51 @@ class TestParsePtrViewHtml:
         rows = parse_ptr_view_html(_single_row_html(label))
         assert rows[0]["txn_type"] == expected
 
+    def test_parses_open_ended_over_amount_as_lower_bound_only(self):
+        """The eFD top tier "Over $X" states a lower bound and no upper bound.
+
+        Regression test for filing 0a93a20c-2a0f-4979-80ca-cc2f61297527, which
+        raised "Transaction row has no amount" because the guard required the
+        cell to start with "$". amount_max must be None, never the same value
+        as amount_min, which would claim an exact figure the source withholds.
+        """
+        rows = parse_ptr_view_html(
+            _load_fixture("ptr_view_open_ended_amount.html")
+        )
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["asset_name"] == (
+            "Greenbrier Hotel Corporation and Affiliates"
+        )
+        assert row["asset_type_code"] == "Non-Public Stock"
+        assert row["txn_type"] == "S (partial)"
+        assert row["txn_date"] == date(2026, 8, 14)
+        assert row["amount_min"] == 50_000_000
+        assert row["amount_max"] is None
+        assert row["amount_raw"] == "Over $50,000,000"
+
     def test_rejects_unknown_transaction_type(self):
         with pytest.raises(SenateDetailError):
             parse_ptr_view_html(_single_row_html("Gift"))
+
+    @pytest.mark.parametrize(
+        ("amount_cell", "expected_min", "expected_max"),
+        [
+            # Bounded ranges and single exact amounts keep prior behavior.
+            ("$1,001 - $15,000", 1001, 15000),
+            ("$250,001 - $500,000", 250001, 500000),
+            ("$15,000", 15000, 15000),
+            # Open-ended top tier: lower bound only, upper bound unknown.
+            ("Over $50,000,000", 50_000_000, None),
+            ("OVER $1,000,000", 1_000_000, None),
+        ],
+    )
+    def test_amount_bounds(self, amount_cell, expected_min, expected_max):
+        html = _single_row_html("Purchase", amount=amount_cell)
+        row = parse_ptr_view_html(html)[0]
+        assert row["amount_min"] == expected_min
+        assert row["amount_max"] == expected_max
+        assert row["amount_raw"] == amount_cell
 
     def test_rejects_row_without_amount(self):
         html = (
@@ -261,6 +305,12 @@ class TestParsePtrViewHtml:
             "<td>Purchase</td><td></td><td>--</td>"
             "</tr></tbody></table>"
         ).encode()
+        with pytest.raises(SenateDetailError):
+            parse_ptr_view_html(html)
+
+    def test_rejects_row_with_placeholder_amount(self):
+        """A "--" amount cell is malformed and must be reported, not stored."""
+        html = _single_row_html("Purchase", amount="--")
         with pytest.raises(SenateDetailError):
             parse_ptr_view_html(html)
 

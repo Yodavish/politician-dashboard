@@ -14,6 +14,12 @@ describe("formatAmount", () => {
   it("formats large values with separators", () => {
     expect(formatAmount(50001, 100000)).toBe("$50,001 - $100,000");
   });
+  it("formats a single exact amount as a range", () => {
+    expect(formatAmount(15000, 15000)).toBe("$15,000 - $15,000");
+  });
+  it("renders an open-ended amount as 'Over', not a fake range", () => {
+    expect(formatAmount(50000000, null)).toBe("Over $50,000,000");
+  });
 });
 
 describe("txnTypeLabel", () => {

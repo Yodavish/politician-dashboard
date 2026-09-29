@@ -72,7 +72,8 @@ class Transaction(BaseModel):
     txn_date: date
     notification_date: date
     amount_min: float
-    amount_max: float
+    # None when the source states only a lower bound (eFD "Over $X" tier).
+    amount_max: float | None
     amount_raw: str
     owner: str | None
     filing_status: str | None
@@ -128,7 +129,8 @@ class SignalPolitician(BaseModel):
     state_district: str
     transaction_count: int
     amount_min: float
-    amount_max: float
+    # None when the source states only a lower bound (eFD "Over $X" tier).
+    amount_max: float | None
 
 
 class SignalTransaction(BaseModel):
@@ -144,7 +146,8 @@ class SignalTransaction(BaseModel):
     txn_date: date
     notification_date: date
     amount_min: float
-    amount_max: float
+    # None when the source states only a lower bound (eFD "Over $X" tier).
+    amount_max: float | None
     amount_raw: str
     owner: str | None
     asset_name: str
@@ -168,7 +171,8 @@ class Signal(BaseModel):
     end_date: date
     span_days: int
     total_min: float
-    total_max: float
+    # None when any clustered amount is open-ended (eFD "Over $X" tier).
+    total_max: float | None
     politicians: list[SignalPolitician]
     rule: SignalRule
     limitations: list[str]

@@ -411,6 +411,30 @@ class TestToTransactions:
         assert tx.txn_type == "S (partial)"
         assert tx.amount_raw == "$15,001 - $50,000"
 
+    def test_preserves_open_ended_amount_max_as_none(self) -> None:
+        """A missing amount_max is open-ended, not a zero-dollar upper bound.
+
+        Using ``item.get("amount_max") or 0`` here would store an
+        "Over $50,000,000" disclosure as a $0 - $50,000,000 range.
+        """
+        parsed = {
+            "transactions": [
+                {
+                    "asset_name": "Greenbrier Hotel Corporation and Affiliates",
+                    "txn_type": "S (partial)",
+                    "txn_date": date(2026, 8, 14),
+                    "notification_date": date(2026, 8, 20),
+                    "amount_min": 50000000,
+                    "amount_max": None,
+                    "amount_raw": "Over $50,000,000",
+                }
+            ]
+        }
+        (tx,) = _to_transactions(parsed)
+        assert tx.amount_min == 50000000
+        assert tx.amount_max is None
+        assert tx.amount_raw == "Over $50,000,000"
+
     def test_preserves_notes(self) -> None:
         parsed = {
             "transactions": [
