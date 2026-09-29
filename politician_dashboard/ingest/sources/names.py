@@ -81,18 +81,36 @@ _DIMINUTIVE_FORMS: dict[str, frozenset[str]] = {
 }
 
 
+# Typographic apostrophe variants that must compare equal to the ASCII
+# apostrophe. Neither NFKD nor the combining-mark filter rewrites them, so the
+# two spellings would otherwise never compare equal: a chamber index writes
+# "O'Halleran" (U+0027) while the reference roster writes the same name with
+# U+2019. Folding them in the transliteration pass keeps one normalization
+# path and reduces both sides to the same ASCII vocabulary.
+_APOSTROPHE_VARIANTS = {
+    "‘": "'",  # LEFT SINGLE QUOTATION MARK
+    "’": "'",  # RIGHT SINGLE QUOTATION MARK
+    "ʼ": "'",  # MODIFIER LETTER APOSTROPHE
+    "＇": "'",  # FULLWIDTH APOSTROPHE
+}
+
+
 def _transliterate(value: str) -> str:
-    """ASCII-fold a name: strip diacritics so comparisons are accent-insensitive.
+    """ASCII-fold a name: strip diacritics and fold apostrophe variants.
 
     The chamber eFD portals strip accents from last names (``Sánchez`` in the
     member roster resolves against a filing filed under ``Sanchez``), so both
-    sides are reduced to the same ASCII vocabulary before matching.
+    sides are reduced to the same ASCII vocabulary before matching. The portals
+    and the reference rosters likewise disagree on which apostrophe codepoint
+    spells a name, so :data:`_APOSTROPHE_VARIANTS` is folded onto the ASCII
+    apostrophe in the same pass.
     """
-    return "".join(
-        char
-        for char in unicodedata.normalize("NFKD", value)
-        if not unicodedata.combining(char)
-    )
+    folded: list[str] = []
+    for char in unicodedata.normalize("NFKD", value):
+        if unicodedata.combining(char):
+            continue
+        folded.append(_APOSTROPHE_VARIANTS.get(char, char))
+    return "".join(folded)
 
 
 def normalize_name(value: str) -> str:
