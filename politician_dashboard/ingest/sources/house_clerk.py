@@ -84,6 +84,17 @@ class HouseMemberResolveError(RuntimeError):
     """Raised when a House PTR filing's member cannot be identified confidently."""
 
 
+class HouseMemberAmbiguousError(HouseMemberResolveError):
+    """Raised when a filing's state and name match more than one member.
+
+    A distinct type because ambiguity is a different kind of failure from an
+    unknown identity: several reference members remain equally plausible, so
+    there is no safe way to choose between them. Callers that recover from an
+    unresolvable filing must not recover from this one, and the diagnostic
+    must not be relabelled as a plain "no match".
+    """
+
+
 def classify_doc_id(doc_id: str) -> str:
     """Classify a House PTR DocID as ``efiled`` or ``scanned``.
 
@@ -506,21 +517,23 @@ def resolve_house_member(
             f"({state}) cannot be resolved"
         )
     state_key = state.strip().upper()
-    last_key = names.normalize_name(last)
+    last_key = _normalize_house_surname(last)
+    identity_hits: list[HouseMember] = []
     hits: list[HouseMember] = []
     for member in members:
         if member.state != state_key:
             continue
-        if names.normalize_name(member.last_name) != last_key:
+        if _normalize_house_surname(member.last_name) != last_key:
             if not (
                 member.last_name_alt
-                and names.normalize_name(member.last_name_alt) == last_key
+                and _normalize_house_surname(member.last_name_alt) == last_key
             ):
                 continue
         if not names.given_names_agree(
             first, member.first_name, official_given=member.given_name
         ):
             continue
+        identity_hits.append(member)
         if anchor_date is not None and not _serves_on(member, anchor_date):
             continue
         hits.append(member)
@@ -528,16 +541,38 @@ def resolve_house_member(
     if len(hits) == 1:
         return hits[0]
     if len(hits) > 1:
-        raise HouseMemberResolveError(
+        raise HouseMemberAmbiguousError(
             f"Ambiguous House member: '{first} {last}' ({state_key}) matches "
             f"multiple reference members on "
             f"{anchor_date.isoformat() if anchor_date else 'any date'} "
             f"({', '.join(_format_member(member) for member in hits)}); "
             "refusing to guess"
         )
+    if identity_hits:
+        if len(identity_hits) > 1:
+            # The date disambiguated for some filings (a term that covers
+            # 2011-06-01 separates the two Donald Paynes) but not for this one.
+            # The identity itself stays undecidable and the unanchored retry
+            # below would reach the same verdict, so report it as ambiguity
+            # here rather than blaming a service record that is not at fault.
+            raise HouseMemberAmbiguousError(
+                f"Ambiguous House member: '{first} {last}' ({state_key}) matches "
+                f"multiple reference members; refusing to guess (filing dated "
+                f"{anchor_date.isoformat()})"
+            )
+        # Exactly one member carries this identity and was simply not in office
+        # on the filing date: a vacancy day, a service gap, or a filing dated
+        # before the member took office. Reporting this as an unknown name
+        # would send the reader after a spelling mismatch that does not exist.
+        raise HouseMemberResolveError(
+            f"Unresolved House member: '{first} {last}' ({state_key}); matched "
+            f"reference member "
+            f"{_format_member(identity_hits[0])} "
+            f"but no reference House service covers {anchor_date.isoformat()}"
+        )
     raise HouseMemberResolveError(
-        f"Unresolved House member: '{first} {last}' ({state_key}); "
-        "no reference House service covers "
+        f"Unresolved House member: '{first} {last}' ({state_key}); no reference "
+        f"House member matches this state and name on "
         f"{anchor_date.isoformat() if anchor_date else 'any date'}"
     )
 
@@ -571,23 +606,55 @@ def resolve_ptr_member(
     first: a filing dated during the filer's House service resolves exactly
     as before. When that fails, the identity is re-resolved without an anchor
     and accepted only when exactly one reference member matches (ambiguous
-    and unknown identities still raise :class:`HouseMemberResolveError`) AND
+    and unknown identities still raise, as
+    :class:`HouseMemberAmbiguousError` and :class:`HouseMemberResolveError`
+    respectively) AND
     that member's service ended before the filing date -- i.e. a legitimate
     late PTR filed after leaving office. No fixed grace period is applied:
     the requirement is purely that the service record is complete and before
     the filing date, so a filing dated before service began or during a
     service gap still fails closed. The resolved member's stable ``bioguide_id``
     is preserved.
+
+    Every failure is reported against the ``anchor_date`` the index supplied.
+    The unanchored retry is an internal lookup, not a claim that the filing
+    has no date, so its "any date" wording is never allowed to reach the
+    caller: a failure that loses the filing date sends an operator looking for
+    a service-interval problem when the real cause may be the name itself.
     """
     try:
         return resolve_house_member(
             state, last, first, anchor_date=anchor_date, members=members
         )
+    except HouseMemberAmbiguousError:
+        # The unanchored retry below searches a superset of the candidates
+        # matched here (it only drops the service-date filter), so it cannot
+        # reduce an ambiguous group to one. Fail now, with the filing date the
+        # index actually reported.
+        raise
     except HouseMemberResolveError:
         if anchor_date is None:
             raise
 
-    member = resolve_house_member(state, last, first, anchor_date=None, members=members)
+    # Retry without the anchor to admit a filing made after the filer left
+    # office. This lookup is deliberately unanchored -- the point is to find a
+    # member who was NOT serving on the filing date -- so it must never be
+    # reported as if the filing itself had no date. The candidate set is the
+    # same one the anchored stage just searched (only the service-date filter is
+    # dropped), so an ambiguity would already have been raised above; the guard
+    # keeps that true locally rather than relying on the argument holding.
+    try:
+        member = resolve_house_member(
+            state, last, first, anchor_date=None, members=members
+        )
+    except HouseMemberAmbiguousError:
+        raise
+    except HouseMemberResolveError as exc:
+        raise HouseMemberResolveError(
+            f"Unresolved House member: '{first} {last}' ({state}); no reference "
+            f"House member matches this state and name on any date, so none can "
+            f"have served on the filing dated {anchor_date.isoformat()}"
+        ) from exc
     if not _service_ended_before(member, anchor_date):
         raise HouseMemberResolveError(
             f"Unresolved House member: '{first} {last}' ({state}); "

@@ -18,6 +18,8 @@ from politician_dashboard.ingest.sources.base import select_ptrs
 from politician_dashboard.ingest.sources.house_clerk import (
     HouseClerkSource,
     HouseIndexError,
+    HouseMember,
+    HouseMemberAmbiguousError,
     HouseMemberResolveError,
     HouseMemberTerm,
     _serves_on,
@@ -29,6 +31,7 @@ from politician_dashboard.ingest.sources.house_clerk import (
     parse_index_xml,
     parse_index_zip,
     resolve_house_member,
+    resolve_ptr_member,
 )
 from politician_dashboard.ingest.sources.house_members_refresh import (
     build_members_snapshot,
@@ -381,6 +384,211 @@ class TestHouseMemberResolution:
             resolve_house_member(
                 "AL", "Aderholt", "Robert", anchor_date=date(2025, 9, 10), members=[]
             )
+
+
+def _term(start: str, end: str | None, district: int = 0) -> HouseMemberTerm:
+    return HouseMemberTerm(
+        start=date.fromisoformat(start),
+        end=date.fromisoformat(end) if end else None,
+        district=district,
+    )
+
+
+def _member(
+    bioguide_id: str, state: str, last: str, first: str, terms: list[HouseMemberTerm]
+) -> HouseMember:
+    return HouseMember(
+        bioguide_id=bioguide_id,
+        last_name=last,
+        first_name=first,
+        given_name=first,
+        last_name_alt=None,
+        state=state,
+        terms=tuple(terms),
+    )
+
+
+def _overlapping_pair() -> list[HouseMember]:
+    """Two same-state, same-surname, same-given members serving concurrently.
+
+    Concurrent service is what makes a match genuinely ambiguous: no filing
+    date can pick between them, so guessing would be unsafe.
+    """
+    return [
+        _member("T000001", "TX", "Roe", "Jane", [_term("2023-01-03", "2025-01-03")]),
+        _member("T000002", "TX", "Roe", "Jane", [_term("2024-01-03", "2026-01-03")]),
+    ]
+
+
+def _disjoint_pair() -> list[HouseMember]:
+    """Two same-identity members whose service never overlaps.
+
+    Distinguishing this from :func:`_overlapping_pair` matters: the identity is
+    equally undecidable, but neither candidate was in office on a filing that
+    post-dates both, so the fallback must report ambiguity rather than treat
+    the pair as a service-interval problem.
+    """
+    return [
+        _member("T000001", "TX", "Roe", "Jane", [_term("2001-01-03", "2003-01-03")]),
+        _member("T000002", "TX", "Roe", "Jane", [_term("2004-01-03", "2006-01-03")]),
+    ]
+
+
+class TestHouseResolutionDiagnostics:
+    """Failure reporting from the House member resolver.
+
+    Three outcomes must stay distinguishable, because each sends an operator
+    somewhere different: the filer's name does not match anybody, the filer's
+    name matches several members, or the filer is a known member who was not in
+    office on the filing date. Collapsing any two of them sends a real
+    investigation after the wrong record.
+
+    Every failure must be reported against the date the index supplied, which
+    includes failures that surface from the unanchored post-service retry: that
+    retry is an internal lookup that drops the anchor on purpose, and its
+    "any date" wording must never reach the caller.
+    """
+
+    def test_unknown_name_reports_no_match_with_the_filing_date(self):
+        with pytest.raises(HouseMemberResolveError) as exc:
+            _resolve("AL", "Nofinger", "Zed", anchor_date=date(2025, 9, 10))
+        message = str(exc.value)
+        assert "Zed Nofinger" in message
+        assert "AL" in message
+        assert "2025-09-10" in message
+        assert "no reference House member matches this state and name" in message
+        # A name mismatch is not a service-interval problem. Claiming the
+        # roster's service history failed to cover a date would send a reader
+        # to check term bounds for a member that does not exist.
+        assert "no reference House service covers" not in message
+
+    def test_ambiguous_candidates_raise_the_dedicated_error(self):
+        # No anchor date: both Donald Paynes (NJ) are candidates.
+        with pytest.raises(HouseMemberAmbiguousError) as exc:
+            _resolve("NJ", "Payne", "Donald")
+        message = str(exc.value)
+        assert "Ambiguous House member" in message
+        assert "Donald Payne (NJ)" in message
+        assert "refusing to guess" in message
+        # Stays catchable as a plain resolution failure, so existing callers
+        # and the ingest loop keep working unchanged.
+        assert isinstance(exc.value, HouseMemberResolveError)
+
+    def test_date_anchored_ambiguity_reports_the_filing_date(self):
+        with pytest.raises(HouseMemberAmbiguousError) as exc:
+            resolve_house_member(
+                "TX", "Roe", "Jane", anchor_date=date(2024, 6, 1), members=_overlapping_pair()
+            )
+        message = str(exc.value)
+        assert "2024-06-01" in message
+        assert message.count("Jane Roe (TX)") == 2
+
+    def test_single_member_outside_service_is_not_reported_as_a_name_mismatch(self):
+        # McCarthy (CA) left office 2023-12-31, so 2024-06-01 falls in a service
+        # gap: exactly one member matches the identity and was not in office.
+        with pytest.raises(HouseMemberResolveError) as exc:
+            _resolve("CA", "McCarthy", "Kevin", anchor_date=date(2024, 6, 1))
+        message = str(exc.value)
+        assert "no reference House service covers 2024-06-01" in message
+        assert "Kevin McCarthy (CA)" in message
+        # The identity was recognized, so this must not read as a bad name and
+        # must not be reclassified as ambiguity.
+        assert "no reference House member matches this state and name" not in message
+        assert not isinstance(exc.value, HouseMemberAmbiguousError)
+
+    def test_post_service_retry_failure_keeps_the_filing_date(self):
+        # The retry runs unanchored on purpose, to find a filer who was no
+        # longer serving. That is a reason to drop the anchor from the
+        # *lookup*, never from the diagnostic: the index reported 2024-05-20
+        # and the operator needs that date to find the filing.
+        with pytest.raises(HouseMemberResolveError) as exc:
+            resolve_ptr_member(
+                "TX",
+                "Nonexistent",
+                "Pat",
+                anchor_date=date(2024, 5, 20),
+                members=_house_members(),
+            )
+        message = str(exc.value)
+        assert "Pat Nonexistent" in message
+        assert "TX" in message
+        assert "2024-05-20" in message
+        # The regression: the retry used to escape with the service claim made
+        # against "any date", which asserts the filing itself had no date.
+        assert "covers any date" not in message
+        assert "no reference House member matches this state and name" in message
+
+    def test_post_service_retry_keeps_ambiguity_as_ambiguity(self):
+        # Neither candidate was serving on the filing date, so the anchored
+        # stage cannot decide. The retry widens to a superset and still finds
+        # two members: that is ambiguity, and it must not be relabelled as an
+        # unresolved name or as a service-interval problem.
+        with pytest.raises(HouseMemberAmbiguousError) as exc:
+            resolve_ptr_member(
+                "TX", "Roe", "Jane", anchor_date=date(2024, 5, 20), members=_disjoint_pair()
+            )
+        message = str(exc.value)
+        assert "2024-05-20" in message
+        assert "covers any date" not in message
+        assert "refusing to guess" in message
+
+    def test_ambiguity_at_the_anchored_stage_is_not_relabelled(self):
+        with pytest.raises(HouseMemberAmbiguousError) as exc:
+            resolve_ptr_member(
+                "TX", "Roe", "Jane", anchor_date=date(2024, 6, 1), members=_overlapping_pair()
+            )
+        message = str(exc.value)
+        assert "2024-06-01" in message
+        assert message.count("Jane Roe (TX)") == 2
+        # The retry searches a superset of these candidates, so it could not
+        # have reduced them to one.
+        assert "covers any date" not in message
+
+    def test_shared_identity_outside_service_reports_ambiguity_with_the_date(self):
+        # Two Donald Paynes (NJ) share this identity; the date falls in the
+        # vacancy between their periods of service, so the anchored stage cannot
+        # pick one. The verdict is ambiguity carrying the real filing date --
+        # not a name mismatch, and not a claim about one member's term.
+        with pytest.raises(HouseMemberAmbiguousError) as exc:
+            resolve_ptr_member(
+                "NJ", "Payne", "Donald", anchor_date=date(2012, 6, 1), members=_house_members()
+            )
+        message = str(exc.value)
+        assert "2012-06-01" in message
+        assert "refusing to guess" in message
+        assert "no reference House member matches this state and name" not in message
+        assert "covers any date" not in message
+
+    def test_in_service_filing_still_resolves(self):
+        resolved = resolve_ptr_member(
+            "AL", "Aderholt", "Robert", anchor_date=date(2025, 9, 10), members=_house_members()
+        )
+        assert resolved.bioguide_id == "A000055"
+
+    def test_post_service_late_filing_still_resolves(self):
+        # Santos was expelled 2023-12-01 (inclusive). A PTR filed afterwards is
+        # the legitimate late filing the retry exists to admit, and it must
+        # keep resolving to the same stable bioguide id.
+        resolved = resolve_ptr_member(
+            "NY", "Santos", "George", anchor_date=date(2023, 12, 15), members=_house_members()
+        )
+        assert resolved.bioguide_id == "S001222"
+
+    def test_filing_before_service_still_fails_closed(self):
+        # The retry must not attribute a filing forward into a seat the member
+        # did not hold yet.
+        with pytest.raises(HouseMemberResolveError) as exc:
+            resolve_ptr_member(
+                "FL", "Patronis", "Jimmy", anchor_date=date(2025, 4, 1), members=_house_members()
+            )
+        assert "2025-04-01" in str(exc.value)
+
+    def test_missing_anchor_date_still_raises_with_the_unanchored_wording(self):
+        # With no date to report, "any date" is the honest description; only a
+        # supplied date must be substituted in.
+        with pytest.raises(HouseMemberResolveError) as exc:
+            resolve_ptr_member("TX", "Nonexistent", "Pat", anchor_date=None, members=_house_members())
+        assert "any date" in str(exc.value)
 
 
 class TestParseHouseMembersJson:
