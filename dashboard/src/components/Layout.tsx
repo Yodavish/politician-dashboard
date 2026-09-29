@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { to: "/transactions", label: "Recent Trades" },
   { to: "/politicians", label: "Politicians" },
+  { to: "/signals", label: "Signals" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -29,6 +29,17 @@ TRANSACTION_SORTS: dict[str, str] = {
     "created_at": "f.created_at",
     "doc_id": "lower(f.doc_id)",
 }
+# Sort keys for computed signals. These address the aggregated cluster
+# columns produced by the signal CTE, not raw table columns.
+SIGNAL_SORTS: dict[str, str] = {
+    "politician_count": "c.politician_count",
+    "transaction_count": "c.transaction_count",
+    "total_max": "c.total_max",
+    "total_min": "c.total_min",
+    "span_days": "c.span_days",
+    "start_date": "c.start_date",
+    "ticker": "lower(c.ticker)",
+}
 
 
 def parse_sort(sort: str, sorts: dict[str, str], default: str) -> tuple[str, bool]:

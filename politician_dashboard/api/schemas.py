@@ -99,6 +99,85 @@ class FilingDetail(FilingSummary):
     transactions: list[Transaction]
 
 
+# --- Signals -------------------------------------------------------------
+#
+# Signals are computed on read. The response carries the rule that produced
+# it plus the underlying evidence, so a user can always audit a signal.
+
+
+class SignalRule(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    type: str
+    label: str
+    txn_type: str
+    min_politicians: int
+    max_gap_days: int
+    max_span_days: int
+    ticker_pattern: str
+    excludes_future_dates: bool
+    materialized: bool
+    description: str
+
+
+class SignalPolitician(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: str
+    name: str
+    state_district: str
+    transaction_count: int
+    amount_min: float
+    amount_max: float
+
+
+class SignalTransaction(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    filing_id: int
+    doc_id: str
+    politician_id: str
+    politician_name: str
+    sequence: int
+    txn_type: str
+    txn_date: date
+    notification_date: date
+    amount_min: float
+    amount_max: float
+    amount_raw: str
+    owner: str | None
+    asset_name: str
+    ticker: str | None
+    asset_type_code: str | None
+
+
+class BuyCluster(BaseModel):
+    """Summary form; the detail endpoint adds ``transactions``."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str
+    type: str
+    label: str
+    ticker: str
+    asset_name: str | None
+    transaction_count: int
+    politician_count: int
+    start_date: date
+    end_date: date
+    span_days: int
+    total_min: float
+    total_max: float
+    politicians: list[SignalPolitician]
+    rule: SignalRule
+    limitations: list[str]
+
+
+class BuyClusterDetail(BuyCluster):
+    transactions: list[SignalTransaction]
+
+
 class Pagination(BaseModel):
     limit: int
     offset: int

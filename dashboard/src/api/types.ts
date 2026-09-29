@@ -90,3 +90,75 @@ export interface Paginated<T> {
   items: T[];
   pagination: Pagination;
 }
+
+// --- Signals -------------------------------------------------------------
+//
+// Signals are computed on the server from filings and transactions. The
+// `rule` block travels with every signal so the thresholds that produced it
+// are always visible, and `limitations` carries the caveats that keep a
+// disclosure pattern from reading as a conclusion.
+
+export type SignalType = "buy_cluster";
+
+export interface SignalRule {
+  type: SignalType;
+  label: string;
+  txn_type: string;
+  min_politicians: number;
+  max_gap_days: number;
+  max_span_days: number;
+  ticker_pattern: string;
+  excludes_future_dates: boolean;
+  materialized: boolean;
+  description: string;
+}
+
+export interface SignalPolitician {
+  id: string;
+  name: string;
+  state_district: string;
+  transaction_count: number;
+  amount_min: number;
+  amount_max: number;
+}
+
+export interface SignalTransaction {
+  id: number;
+  filing_id: number;
+  doc_id: string;
+  politician_id: string;
+  politician_name: string;
+  sequence: number;
+  txn_type: string;
+  txn_date: string;
+  notification_date: string;
+  amount_min: number;
+  amount_max: number;
+  amount_raw: string;
+  owner: string | null;
+  asset_name: string;
+  ticker: string | null;
+  asset_type_code: string | null;
+}
+
+export interface BuyCluster {
+  id: string;
+  type: SignalType;
+  label: string;
+  ticker: string;
+  asset_name: string | null;
+  transaction_count: number;
+  politician_count: number;
+  start_date: string;
+  end_date: string;
+  span_days: number;
+  total_min: number;
+  total_max: number;
+  politicians: SignalPolitician[];
+  rule: SignalRule;
+  limitations: string[];
+}
+
+export interface BuyClusterDetail extends BuyCluster {
+  transactions: SignalTransaction[];
+}

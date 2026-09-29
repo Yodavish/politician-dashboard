@@ -7,6 +7,13 @@ Column names are aliased to snake_case for direct use by the schema mapping.
 from __future__ import annotations
 
 from politician_dashboard.api import sql as _sql
+from politician_dashboard.api.signal_rules import (
+    BUY_CLUSTER_GAP_DAYS,
+    BUY_CLUSTER_MAX_SPAN_DAYS,
+    BUY_CLUSTER_MIN_POLITICIANS,
+    BUY_CLUSTER_TICKER_PATTERN,
+    BUY_CLUSTER_TXN_TYPE,
+)
 
 
 def _count(conn, base_from: str, clauses: list, params: list) -> int:
@@ -264,3 +271,251 @@ def get_politician(conn, district: str, first: str, last: str):
         """,
         (district, first.lower(), last.lower()),
     ).fetchone()
+
+
+# --- Buy-cluster signal --------------------------------------------------
+#
+# The signal is computed on read with window functions, so there is no stored
+# table and no migration. See ``api/signal_rules.py`` for the parameters and
+# the caveat text returned to clients.
+#
+# Cluster identity is ``(ticker, burst_id)``, and a burst's first transaction
+# date is unique within a ticker, so ``(ticker, start_date)`` alone identifies
+# a signal. That pair is what the public ``bc_<TICKER>_<YYYY-MM-DD>`` id
+# encodes, which lets the detail route look a signal up without storing or
+# decoding a hash.
+
+# Mirrors ``politicians.politician_id`` so a signal's people match the
+# politician ids used everywhere else in the API.
+_PERSON_KEY_SQL = r"""
+    regexp_replace(lower(btrim(f.state_district)), '[\s_]+', '_', 'g') || '_' ||
+    regexp_replace(lower(btrim(f.first_name)), '[\s_]+', '_', 'g') || '_' ||
+    regexp_replace(lower(btrim(f.last_name)), '[\s_]+', '_', 'g')
+"""
+
+# Named placeholders (``%(name)s``) are used because the same fragment is
+# embedded in several statements with different trailing parameters.
+_BUY_CLUSTER_CTE = f"""
+WITH events AS (
+    SELECT
+        t.id,
+        t.filing_id,
+        f.doc_id,
+        t.sequence,
+        t.ticker,
+        t.asset_name,
+        t.asset_type_code,
+        t.txn_type,
+        t.txn_date,
+        t.notification_date,
+        t.amount_min,
+        t.amount_max,
+        t.amount_raw,
+        t.owner_token,
+        f.first_name,
+        f.last_name,
+        f.state_district,
+        {_PERSON_KEY_SQL} AS person_key
+    FROM transactions t
+    JOIN filings f ON f.id = t.filing_id
+    WHERE t.txn_type = %(txn_type)s
+      AND t.ticker ~ %(ticker_pattern)s
+      AND t.txn_date <= CURRENT_DATE
+),
+ordered AS (
+    SELECT events.*,
+           lag(txn_date) OVER (
+               PARTITION BY ticker ORDER BY txn_date, id
+           ) AS prev_date
+    FROM events
+),
+bursts AS (
+    SELECT ordered.*,
+           sum(CASE WHEN prev_date IS NULL
+                     OR txn_date - prev_date > %(max_gap_days)s
+                    THEN 1 ELSE 0 END) OVER (
+               PARTITION BY ticker ORDER BY txn_date, id
+           ) AS burst_id
+    FROM ordered
+),
+clusters AS (
+    SELECT
+        ticker,
+        burst_id,
+        min(txn_date) AS start_date,
+        max(txn_date) AS end_date,
+        (max(txn_date) - min(txn_date))::int AS span_days,
+        count(*)::int AS transaction_count,
+        count(DISTINCT person_key)::int AS politician_count,
+        sum(amount_min) AS total_min,
+        sum(amount_max) AS total_max,
+        mode() WITHIN GROUP (ORDER BY asset_name)
+            FILTER (WHERE asset_name IS NOT NULL) AS asset_name
+    FROM bursts
+    GROUP BY ticker, burst_id
+    HAVING count(DISTINCT person_key) >= %(min_politicians)s
+       AND (max(txn_date) - min(txn_date)) <= %(max_span_days)s
+)
+"""
+
+# Shared summary projection so the list and detail responses are built from
+# exactly the same expression and cannot drift apart.
+_BUY_CLUSTER_SUMMARY_SELECT = """
+    SELECT
+        'bc_' || lower(c.ticker) || '_' || to_char(c.start_date, 'YYYY-MM-DD')
+            AS id,
+        c.ticker,
+        c.asset_name,
+        c.transaction_count,
+        c.politician_count,
+        c.start_date,
+        c.end_date,
+        c.span_days,
+        c.total_min,
+        c.total_max,
+        coalesce(people.politicians, '[]'::jsonb) AS politicians
+    FROM clusters c
+    LEFT JOIN LATERAL (
+        SELECT jsonb_agg(jsonb_build_object(
+                   'id', g.person_key,
+                   'name', concat_ws(' ', g.first_name, g.last_name),
+                   'state_district', g.state_district,
+                   'transaction_count', g.transaction_count,
+                   'amount_min', g.amount_min,
+                   'amount_max', g.amount_max
+               ) ORDER BY g.amount_max DESC NULLS LAST, g.person_key)
+               AS politicians
+        FROM (
+            SELECT b.person_key,
+                   min(b.first_name) AS first_name,
+                   min(b.last_name) AS last_name,
+                   min(b.state_district) AS state_district,
+                   count(*)::int AS transaction_count,
+                   sum(b.amount_min) AS amount_min,
+                   sum(b.amount_max) AS amount_max
+            FROM bursts b
+            WHERE b.ticker = c.ticker AND b.burst_id = c.burst_id
+            GROUP BY b.person_key
+        ) g
+    ) people ON TRUE
+"""
+
+
+def _buy_cluster_params() -> dict:
+    """Rule parameters bound into every buy-cluster statement."""
+    return {
+        "txn_type": BUY_CLUSTER_TXN_TYPE,
+        "ticker_pattern": BUY_CLUSTER_TICKER_PATTERN,
+        "max_gap_days": BUY_CLUSTER_GAP_DAYS,
+        "min_politicians": BUY_CLUSTER_MIN_POLITICIANS,
+        "max_span_days": BUY_CLUSTER_MAX_SPAN_DAYS,
+    }
+
+
+def _buy_cluster_filters(filters: dict, params: dict) -> list[str]:
+    """Build post-cluster filter clauses.
+
+    Filters are applied to the *computed* clusters rather than to the
+    transactions feeding them. Narrowing the input first would move burst
+    boundaries and make the same signal resolve to a different id depending
+    on the query string.
+    """
+    clauses: list[str] = []
+    if filters.get("ticker") is not None:
+        clauses.append("lower(c.ticker) = lower(%(filter_ticker)s)")
+        params["filter_ticker"] = filters["ticker"]
+    # Narrows already-computed clusters by width. The clustering rule itself
+    # still caps a burst at BUY_CLUSTER_MAX_SPAN_DAYS, so a ceiling above
+    # that value is accepted but cannot exclude anything.
+    if filters.get("span_days_max") is not None:
+        clauses.append("c.span_days <= %(span_days_max)s")
+        params["span_days_max"] = filters["span_days_max"]
+    if filters.get("politician") is not None:
+        district, first, last = filters["politician"]
+        clauses.append(
+            "EXISTS ("
+            "  SELECT 1 FROM bursts b"
+            "  WHERE b.ticker = c.ticker AND b.burst_id = c.burst_id"
+            "    AND b.state_district = %(politician_district)s"
+            "    AND lower(b.first_name) = lower(%(politician_first)s)"
+            "    AND lower(b.last_name) = lower(%(politician_last)s)"
+            ")"
+        )
+        params["politician_district"] = district
+        params["politician_first"] = first
+        params["politician_last"] = last
+    # Overlap semantics: keep clusters whose window touches the range, so a
+    # cluster that starts before the range is not silently dropped.
+    if filters.get("start_date") is not None:
+        clauses.append("c.end_date >= %(filter_start_date)s")
+        params["filter_start_date"] = filters["start_date"]
+    if filters.get("end_date") is not None:
+        clauses.append("c.start_date <= %(filter_end_date)s")
+        params["filter_end_date"] = filters["end_date"]
+    return clauses
+
+
+def list_buy_clusters(
+    conn, *, filters: dict, sort_key: str, limit: int, offset: int,
+):
+    params = _buy_cluster_params()
+    clauses = _buy_cluster_filters(filters, params)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    total = int(conn.execute(
+        f"{_BUY_CLUSTER_CTE} SELECT count(*) FROM clusters c {where}", params
+    ).fetchone()[0])
+
+    column, descending = _sql.parse_sort(
+        sort_key, _sql.SIGNAL_SORTS, "politician_count"
+    )
+    order = "DESC" if descending else "ASC"
+
+    # (ticker, start_date) is unique per signal, so this tiebreak makes the
+    # ordering total and keeps offset pagination stable across requests.
+    rows = conn.execute(
+        f"""
+        {_BUY_CLUSTER_CTE}
+        {_BUY_CLUSTER_SUMMARY_SELECT}
+        {where}
+        ORDER BY {column} {order} NULLS LAST, c.ticker, c.start_date
+        LIMIT %(limit)s OFFSET %(offset)s
+        """,
+        {**params, "limit": limit, "offset": offset},
+    ).fetchall()
+    return total, rows
+
+
+def get_buy_cluster(conn, ticker: str, start_date: str):
+    """Return ``(summary_row, transaction_rows)`` for one signal, or ``None``."""
+    params = {
+        **_buy_cluster_params(),
+        "signal_ticker": ticker,
+        "signal_start_date": start_date,
+    }
+    where = (
+        "WHERE lower(c.ticker) = lower(%(signal_ticker)s) "
+        "AND c.start_date = %(signal_start_date)s"
+    )
+    summary = conn.execute(
+        f"{_BUY_CLUSTER_CTE} {_BUY_CLUSTER_SUMMARY_SELECT} {where}", params
+    ).fetchone()
+    if summary is None:
+        return None
+
+    transactions = conn.execute(
+        f"""
+        {_BUY_CLUSTER_CTE}
+        SELECT b.id, b.filing_id, b.doc_id, b.sequence, b.person_key,
+               b.first_name, b.last_name, b.state_district, b.txn_type,
+               b.txn_date, b.notification_date, b.amount_min, b.amount_max,
+               b.amount_raw, b.owner_token, b.asset_name, b.ticker,
+               b.asset_type_code
+        FROM clusters c
+        JOIN bursts b ON b.ticker = c.ticker AND b.burst_id = c.burst_id
+        {where}
+        ORDER BY b.txn_date, b.id
+        """,
+        params,
+    ).fetchall()
+    return summary, transactions

@@ -7,6 +7,12 @@ by the Pydantic response models. ``raw_pdf`` is never selected or serialized.
 from __future__ import annotations
 
 from politician_dashboard.api.politicians import politician_id
+from politician_dashboard.api.signal_rules import (
+    BUY_CLUSTER,
+    BUY_CLUSTER_LABEL,
+    BUY_CLUSTER_LIMITATIONS,
+    BUY_CLUSTER_RULE,
+)
 
 
 def filing_dict(row) -> dict:
@@ -103,3 +109,79 @@ def politician_dict(row) -> dict:
         "filing_count": int(filing_count),
         "transaction_count": int(transaction_count),
     }
+
+
+# --- Signals -------------------------------------------------------------
+#
+# Amounts are disclosure ranges. A signal's ``total_min``/``total_max`` are
+# sums of the underlying ranges, which is the only honest total available;
+# they are never collapsed into a midpoint or a single exact figure.
+
+
+def _signal_politician(person: dict) -> dict:
+    return {
+        "id": person["id"],
+        "name": person["name"],
+        "state_district": person["state_district"],
+        "transaction_count": int(person["transaction_count"]),
+        "amount_min": float(person["amount_min"]),
+        "amount_max": float(person["amount_max"]),
+    }
+
+
+def buy_cluster_summary_dict(row) -> dict:
+    (
+        id_, ticker, asset_name, transaction_count, politician_count,
+        start_date, end_date, span_days, total_min, total_max, politicians,
+    ) = row
+    return {
+        "id": id_,
+        "type": BUY_CLUSTER,
+        "label": BUY_CLUSTER_LABEL,
+        "ticker": ticker,
+        "asset_name": asset_name,
+        "transaction_count": int(transaction_count),
+        "politician_count": int(politician_count),
+        "start_date": start_date,
+        "end_date": end_date,
+        "span_days": int(span_days),
+        "total_min": float(total_min),
+        "total_max": float(total_max),
+        "politicians": [_signal_politician(p) for p in politicians],
+        "rule": BUY_CLUSTER_RULE,
+        "limitations": BUY_CLUSTER_LIMITATIONS,
+    }
+
+
+def signal_transaction_dict(row) -> dict:
+    (
+        id_, filing_id, doc_id, sequence, person_key, first_name, last_name,
+        _state_district, txn_type, txn_date, notification_date, amount_min,
+        amount_max, amount_raw, owner_token, asset_name, ticker, asset_type_code,
+    ) = row
+    return {
+        "id": id_,
+        "filing_id": filing_id,
+        "doc_id": doc_id,
+        "politician_id": person_key,
+        "politician_name": f"{first_name} {last_name}".strip(),
+        "sequence": int(sequence),
+        "txn_type": txn_type,
+        "txn_date": txn_date,
+        "notification_date": notification_date,
+        "amount_min": float(amount_min),
+        "amount_max": float(amount_max),
+        "amount_raw": amount_raw,
+        "owner": owner_token,
+        "asset_name": asset_name,
+        "ticker": ticker,
+        "asset_type_code": asset_type_code,
+    }
+
+
+def buy_cluster_detail_dict(summary_row, transaction_rows) -> dict:
+    result = buy_cluster_summary_dict(summary_row)
+    result["transactions"] = [
+        signal_transaction_dict(row) for row in transaction_rows
+    ]
+    return result
