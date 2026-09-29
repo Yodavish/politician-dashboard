@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import urllib.request
 from datetime import date, datetime
@@ -135,6 +136,8 @@ _SUFFIX_TOKEN_PATTERN = frozenset(
     {"jr", "sr", "junior", "senior", "ii", "iii", "iv", "v"}
 )
 
+_NAME_RUN_PATTERN = re.compile(r"[^\W\d_]+", re.UNICODE)
+
 
 def _surname_from_official_full(record: dict) -> str:
     """Best-effort official surname from a congress-legislators record.
@@ -179,8 +182,8 @@ def _surname_from_official_full(record: dict) -> str:
     return last
 
 
-def _official_given_name(record: dict) -> str:
-    """Official full given-name text of a record.
+def _official_given_tokens(record: dict) -> list[str]:
+    """Official given-name tokens of a record, in source order.
 
     Preferred derivation is the ``official_full`` name minus its surname and
     generational-suffix tokens ("April McClain Delaney" with the compound
@@ -198,27 +201,35 @@ def _official_given_name(record: dict) -> str:
     if official_full:
         surname = (name.get("last") or "").strip()
         surname_tokens = {
-            token.strip(".,'\u2019").lower()
+            token.strip(".,'’").lower()
             for token in surname.split()
-            if token.strip(".,'\u2019")
+            if token.strip(".,'’")
         }
         given_tokens = []
         for token in official_full.split():
-            cleaned = token.strip(".,'\u2019").lower()
+            cleaned = token.strip(".,'’").lower()
             if not cleaned or cleaned in _SUFFIX_TOKEN_PATTERN:
                 continue
             if cleaned in surname_tokens:
                 continue
             given_tokens.append(token)
         if given_tokens:
-            return " ".join(given_tokens)
+            return given_tokens
     first = (name.get("first") or "").strip()
     middle = (name.get("middle") or "").strip()
     if not first:
-        return first
+        return []
     if not middle:
-        return first
-    return f"{first} {middle}".strip()
+        return [first]
+    return [first, middle]
+
+
+def _official_given_name(record: dict) -> str:
+    """Official full given-name text of a record.
+
+    See :func:`_official_given_tokens` for the derivation.
+    """
+    return " ".join(_official_given_tokens(record))
 
 
 def _surname_filer_alternate(record: dict) -> str:
@@ -249,6 +260,63 @@ def _surname_filer_alternate(record: dict) -> str:
     if last_token.strip(".,'\u2019").lower() == last.lower():
         return ""
     return last_token
+
+
+def _is_initial_token(token: str) -> bool:
+    """Whether a name token is only initials, e.g. ``"B."``, ``"J"``, ``"J. J."``.
+
+    Every alphabetic run in the token must be a single letter, so a real
+    multi-letter name part never qualifies. A compound-initial middle name
+    ("Eric J. J. Massa" records the middle as ``"J. J."``) is one token that
+    must be recognised as initials, not as a full name.
+    """
+    runs = _NAME_RUN_PATTERN.findall(token)
+    return bool(runs) and all(len(run) == 1 for run in runs)
+
+
+def _surname_filer_alternates(record: dict) -> list[str]:
+    """Alternate surnames a filer may use, as exact-match keys only.
+
+    Two filer-side variants of the roster surname are modelled. Both are
+    compared by exact normalized equality; neither is ever a similarity
+    judgement, so nothing here can match a name that merely looks close.
+
+    1. A compound roster surname filed under its final token ("Delaney" where
+       the roll-call style is the compound "McClain Delaney"). See
+       :func:`_surname_filer_alternate`.
+    2. A filer who pushed the tail of their given name into the ``LastName``
+       field. eFD splits the given name on the first space, so the 2024 Clerk
+       index records Anna Paulina Luna as ``First="Anna"``,
+       ``Last="Paulina Luna"`` against a roster surname of "Luna". For a
+       member whose given name is ``<g0 g1 ... gn>`` and whose roster surname
+       is ``L``, the plausible filing surnames are ``<g1 ... gn> L`` through
+       ``<gn> L``; ``g0`` is excluded because it is the token the ``First``
+       field keeps, so the alternate never swallows the whole given name.
+
+    A member with a single-token given name gets no leading-token alternate:
+    there is no tail to move. A candidate whose moved tokens contain a bare
+    initial is also dropped, so the rule stays a full-name rule -- "B.
+    Aderholt" and "M. Payne" are never generated, and no alternate is ever
+    derived from an initial or a nickname the source does not spell out.
+    """
+    alternates: list[str] = []
+
+    compound = _surname_filer_alternate(record)
+    if compound:
+        alternates.append(compound)
+
+    given_tokens = _official_given_tokens(record)
+    last = _surname_from_official_full(record)
+    if last and len(given_tokens) >= 2:
+        for index in range(1, len(given_tokens)):
+            moved = given_tokens[index:]
+            if any(_is_initial_token(token) for token in moved):
+                continue
+            candidate = " ".join([*moved, last])
+            if candidate.casefold() != last.casefold():
+                alternates.append(candidate)
+
+    return sorted(set(alternates))
 
 
 def _term_overlaps(term: dict, start: str, end: str) -> bool:
@@ -340,8 +408,8 @@ def build_members_snapshot(
                 "terms": sorted(rep_terms, key=lambda t: t["start"]),
             }
             | (
-                {"last_name_alt": alt}
-                if (alt := _surname_filer_alternate(record))
+                {"last_name_alts": alts}
+                if (alts := _surname_filer_alternates(record))
                 else {}
             )
         )

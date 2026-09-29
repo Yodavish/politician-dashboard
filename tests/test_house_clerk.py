@@ -402,7 +402,7 @@ def _member(
         last_name=last,
         first_name=first,
         given_name=first,
-        last_name_alt=None,
+        last_name_alts=(),
         state=state,
         terms=tuple(terms),
     )
@@ -661,7 +661,7 @@ class TestParseHouseMembersJson:
         # (the official full name minus the surname phrase).
         assert by_id["M001232"].given_name == "April"
         assert by_id["M001232"].last_name == "McClain Delaney"
-        assert by_id["M001232"].last_name_alt == "Delaney"
+        assert by_id["M001232"].last_name_alts == ("Delaney",)
         assert by_id["S001214"].given_name == "W. Gregory"
         assert by_id["H001094"].given_name == "Val T."
         assert by_id["S001156"].last_name == "Sánchez"
@@ -876,8 +876,20 @@ class TestHouseMembersSnapshot:
         # Compound surnames survive, and the eFD filer-spelling alternate is
         # emitted only when it differs from the roster surname.
         assert by_id["M001232"]["last_name"] == "McClain Delaney"
-        assert by_id["M001232"]["last_name_alt"] == "Delaney"
-        assert by_id["S001214"].get("last_name_alt") is None
+        assert by_id["M001232"]["last_name_alts"] == ["Delaney"]
+        # A single-token given name has no tail to move, so no alternate at all.
+        assert by_id["Z000001"].get("last_name_alts") is None
+        # Leading-token alternates come from the given-name tail, but never from
+        # an initial: "W. Gregory"/"Robert B."/"Donald M." yield nothing, while
+        # the recorded "Gregory" and "Aumua Amata Coleman" tails do.
+        assert by_id["S001214"]["last_name_alts"] == ["Gregory Steube"]
+        assert by_id["A000055"].get("last_name_alts") is None
+        assert by_id["P000604"].get("last_name_alts") is None
+        assert by_id["H001094"].get("last_name_alts") is None
+        assert by_id["R000600"]["last_name_alts"] == [
+            "Amata Coleman Radewagen",
+            "Coleman Radewagen",
+        ]
         # Accent untouched by generation; transliteration happens at match time.
         assert by_id["S001156"]["last_name"] == "Sánchez"
         # Deterministic ordering by surname/given name/bioguide id.
@@ -1018,6 +1030,298 @@ class TestRefreshCli:
         cur, _ = self._datasets(tmp_path)
         with pytest.raises(SystemExit):
             house_members_refresh._main(["--cur", cur, "--check"])
+
+
+class TestLeadingTokenSurnameAlternates:
+    """Filers who push the given-name tail into the ``LastName`` field.
+
+    eFD splits the given name on the first space, so the Clerk index records
+    Anna Paulina Luna as ``First="Anna"``, ``Last="Paulina Luna"`` while the
+    roster records ``last_name="Luna"``, ``given_name="Anna Paulina"``. The
+    snapshot carries the plausible filing spellings as ``last_name_alts``,
+    compared by exact normalized equality. These tests pin both halves: the
+    generator emits only the spellings the design allows, and the resolver
+    treats an alternate as one more exact key -- never as a hint that relaxes
+    matching.
+    """
+
+    LUNA_TERM = [HouseMemberTerm(date(2023, 1, 3), date(2025, 1, 3), 13)]
+
+    @staticmethod
+    def _luna(**overrides) -> HouseMember:
+        base = dict(
+            bioguide_id="L000596",
+            last_name="Luna",
+            first_name="Anna",
+            given_name="Anna Paulina",
+            last_name_alts=("Paulina Luna",),
+            state="FL",
+            terms=(HouseMemberTerm(date(2023, 1, 3), date(2025, 1, 3), 13),),
+        )
+        base.update(overrides)
+        return HouseMember(**base)
+
+    # --- the intended case -------------------------------------------------
+
+    def test_production_2024_index_shape_resolves_to_luna(self):
+        # The literal row shape from the 2024FD index (doc 8220118 and
+        # 20025103 both read First="Anna" Last="Paulina Luna").
+        member = resolve_house_member(
+            "FL",
+            "Paulina Luna",
+            "Anna",
+            anchor_date=date(2024, 5, 20),
+            members=[self._luna()],
+        )
+        assert member.bioguide_id == "L000596"
+
+    def test_generated_snapshot_alternate_is_consumed_by_the_resolver(self):
+        # Uses the real packaged snapshot, so this fails if the generator and
+        # the resolver ever disagree about the representation.
+        by_id = {m.bioguide_id: m for m in load_default_house_members()}
+        luna = by_id["L000596"]
+        assert luna.last_name == "Luna"
+        assert luna.given_name == "Anna Paulina"
+        assert "Paulina Luna" in luna.last_name_alts
+        resolved = resolve_house_member(
+            "FL", "Paulina Luna", "Anna", anchor_date=date(2024, 5, 20), members=[luna]
+        )
+        assert resolved.bioguide_id == "L000596"
+
+    def test_alternate_is_normalized_not_literal(self):
+        # Case, spacing, and the apostrophe fold apply to alternates exactly as
+        # they do to a roster surname.
+        for spelling in ("paulina luna", "  PAULINA   LUNA ", "Paulina  Luna"):
+            resolved = resolve_house_member(
+                "FL", spelling, "Anna", anchor_date=date(2024, 5, 20), members=[self._luna()]
+            )
+            assert resolved.bioguide_id == "L000596"
+
+    def test_roster_surname_still_matches_without_any_alternate(self):
+        # The alternate is additive; it must not disturb the plain path.
+        resolved = resolve_house_member(
+            "FL",
+            "Luna",
+            "Anna",
+            anchor_date=date(2024, 5, 20),
+            members=[self._luna(last_name_alts=())],
+        )
+        assert resolved.bioguide_id == "L000596"
+
+    # --- the rule stays narrow --------------------------------------------
+
+    def test_hinson_arenholz_does_not_resolve_to_hinson(self):
+        # The negative that motivates keeping this exact. Ashley Hinson's
+        # single-token given name yields no alternate at all, so the 2021 row
+        # "Ashley Hinson Arenholz" (First="Ashley Hinson", Last="Arenholz")
+        # must fail closed rather than fall back to the Hinson roster entry.
+        hinson = HouseMember(
+            bioguide_id="H001077",
+            last_name="Hinson",
+            first_name="Ashley",
+            given_name="Ashley",
+            last_name_alts=(),
+            state="SC",
+            terms=(HouseMemberTerm(date(2023, 1, 3), date(2025, 1, 3), 4),),
+        )
+        with pytest.raises(HouseMemberResolveError):
+            resolve_house_member(
+                "SC", "Arenholz", "Ashley Hinson", anchor_date=date(2021, 6, 1), members=[hinson]
+            )
+
+    @pytest.mark.parametrize(
+        "last",
+        [
+            "Paulina Lunaz",       # trailing character differs
+            "Paulina Luna Jr",     # appended token
+            "Paulina",             # surname portion missing
+            "Paul ina Luna",       # interior edit
+            "aLuna",               # reordered boundary
+            "Paulina Luna-Brown",  # hyphenated compound
+            "Ana Luna",            # tail misspelled
+        ],
+    )
+    def test_near_miss_surnames_never_match(self, last):
+        # No edit distance, no substring containment, no token overlap: every
+        # one of these is a different string and must not resolve.
+        with pytest.raises(HouseMemberResolveError):
+            resolve_house_member(
+                "FL", last, "Anna", anchor_date=date(2024, 5, 20), members=[self._luna()]
+            )
+
+    def test_alternate_still_requires_given_name_agreement(self):
+        # Matching the alternate string is not enough on its own.
+        with pytest.raises(HouseMemberResolveError):
+            resolve_house_member(
+                "FL",
+                "Paulina Luna",
+                "Zed",
+                anchor_date=date(2024, 5, 20),
+                members=[self._luna()],
+            )
+
+    def test_alternate_still_requires_the_same_state(self):
+        with pytest.raises(HouseMemberResolveError):
+            resolve_house_member(
+                "TX",
+                "Paulina Luna",
+                "Anna",
+                anchor_date=date(2024, 5, 20),
+                members=[self._luna()],
+            )
+
+    def test_alternate_still_requires_service_date_coverage(self):
+        # Luna's first term starts 2023-01-03, so a 2022 filing matches the
+        # alternate and the given name but predates service and must fail.
+        # Anchored: the diagnostic names the member it did find.
+        with pytest.raises(HouseMemberResolveError) as direct:
+            resolve_house_member(
+                "FL", "Paulina Luna", "Anna", anchor_date=date(2022, 5, 20),
+                members=[self._luna()],
+            )
+        assert "2022-05-20" in str(direct.value)
+        assert "Anna Luna (FL)" in str(direct.value)
+        # Through the post-service fallback: refused, and still dated.
+        with pytest.raises(HouseMemberResolveError) as via_fallback:
+            resolve_ptr_member(
+                "FL", "Paulina Luna", "Anna", anchor_date=date(2022, 5, 20),
+                members=[self._luna()],
+            )
+        assert "2022-05-20" in str(via_fallback.value)
+
+    def test_alternate_resolves_inside_service_only(self):
+        # 2023-01-03 is the first day of service and must resolve through the
+        # alternate; the day before is a vacancy and must not.
+        assert (
+            resolve_ptr_member(
+                "FL", "Paulina Luna", "Anna", anchor_date=date(2023, 1, 3), members=[self._luna()]
+            ).bioguide_id
+            == "L000596"
+        )
+        with pytest.raises(HouseMemberResolveError) as exc:
+            resolve_ptr_member(
+                "FL", "Paulina Luna", "Anna", anchor_date=date(2023, 1, 2), members=[self._luna()]
+            )
+        assert "2023-01-02" in str(exc.value)
+
+    def test_alternate_may_create_ambiguity_rather_than_guessing(self):
+        # Two genuinely identical identities sharing the alternate: fail closed
+        # with the dedicated error instead of picking one.
+        twin = self._luna(bioguide_id="L999999", last_name_alts=("Paulina Luna",))
+        with pytest.raises(HouseMemberAmbiguousError):
+            resolve_house_member(
+                "FL", "Paulina Luna", "Anna", anchor_date=date(2024, 5, 20),
+                members=[self._luna(), twin],
+            )
+
+    # --- generator rules ---------------------------------------------------
+
+    def test_generator_emits_given_name_tail_alternates(self):
+        record = {
+            "id": {"bioguide": "L000596"},
+            "name": {
+                "first": "Anna",
+                "middle": "Paulina",
+                "last": "Luna",
+                "official_full": "Anna Paulina Luna",
+            },
+            "terms": [],
+        }
+        assert house_members_refresh._surname_filer_alternates(record) == ["Paulina Luna"]
+
+    def test_generator_emits_every_longer_tail(self):
+        record = {
+            "id": {"bioguide": "R000600"},
+            "name": {
+                "first": "Aumua",
+                "middle": "Amata",
+                "last": "Radewagen",
+                "official_full": "Aumua Amata Coleman Radewagen",
+            },
+            "terms": [],
+        }
+        assert house_members_refresh._surname_filer_alternates(record) == [
+            "Amata Coleman Radewagen",
+            "Coleman Radewagen",
+        ]
+
+    def test_generator_never_derives_an_alternate_from_an_initial(self):
+        # "Robert B." and a compound-initial middle "J. J." are initials, not
+        # full name parts, so neither may become a match key.
+        for official_full, last in (
+            ("Robert B. Aderholt", "Aderholt"),
+            ("Eric J. J. Massa", "Massa"),
+            ("Thomas S. P. Perriello", "Perriello"),
+        ):
+            record = {
+                "id": {"bioguide": "X000001"},
+                "name": {"first": "X", "last": last, "official_full": official_full},
+                "terms": [],
+            }
+            assert house_members_refresh._surname_filer_alternates(record) == []
+
+    def test_generator_emits_nothing_for_a_single_token_given_name(self):
+        record = {
+            "id": {"bioguide": "H001077"},
+            "name": {"first": "Ashley", "last": "Hinson", "official_full": "Ashley Hinson"},
+            "terms": [],
+        }
+        assert house_members_refresh._surname_filer_alternates(record) == []
+
+    def test_generator_unifies_the_compound_surname_alternate_in_the_same_list(self):
+        record = {
+            "id": {"bioguide": "M001232"},
+            "name": {
+                "first": "April",
+                "middle": "Lynn",
+                "last": "McClain Delaney",
+                "official_full": "April McClain Delaney",
+            },
+            "terms": [],
+        }
+        assert house_members_refresh._surname_filer_alternates(record) == ["Delaney"]
+
+    def test_retired_singular_field_fails_loudly(self):
+        # A snapshot on the old field would silently match fewer filings, so
+        # the parser refuses it instead.
+        with pytest.raises(HouseMemberResolveError) as exc:
+            parse_house_members_json(
+                json.dumps(
+                    {
+                        "members": [
+                            {
+                                "bioguide_id": "L000596",
+                                "last_name": "Luna",
+                                "first_name": "Anna",
+                                "state": "FL",
+                                "last_name_alt": "Paulina Luna",
+                                "terms": [{"start": "2023-01-03", "end": "2025-01-03", "district": 13}],
+                            }
+                        ]
+                    }
+                )
+            )
+        assert "last_name_alt" in str(exc.value)
+        assert "regenerate" in str(exc.value)
+
+    def test_malformed_alternate_list_is_rejected(self):
+        with pytest.raises(HouseMemberResolveError):
+            parse_house_members_json(
+                json.dumps(
+                    {
+                        "members": [
+                            {
+                                "bioguide_id": "L000596",
+                                "last_name": "Luna",
+                                "first_name": "Anna",
+                                "state": "FL",
+                                "last_name_alts": "Paulina Luna",
+                                "terms": [{"start": "2023-01-03", "end": "2025-01-03", "district": 13}],
+                            }
+                        ]
+                    }
+                )
+            )
 
 
 class TestNames:

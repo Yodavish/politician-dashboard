@@ -240,7 +240,9 @@
       "last_name": "McClain Delaney",
       "first_name": "April",
       "given_name": "April",
-      "last_name_alt": "Delaney",
+      "last_name_alts": [
+        "Delaney"
+      ],
       "state": "MD",
       "terms": [
         {
