@@ -94,6 +94,11 @@ class HouseMemberAmbiguousError(HouseMemberResolveError):
     must not be relabelled as a plain "no match".
     """
 
+# The House index may append professional credentials to a surname. Keep this
+# allowlist narrow and strip these tokens only from the identity comparison;
+# Filing.first/Filing.last continue to preserve the source values.
+_POSTNOMINAL_CREDENTIALS = frozenset({"md", "facs"})
+
 
 def classify_doc_id(doc_id: str) -> str:
     """Classify a House PTR DocID as ``efiled`` or ``scanned``.
