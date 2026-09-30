@@ -472,7 +472,7 @@ def parse_house_members_json(data: bytes) -> list[HouseMember]:
                 last_name=last_name,
                 first_name=first_name,
                 given_name=given_name,
-                last_name_alt=last_name_alt,
+                last_name_alts=last_name_alts,
                 state=state,
                 terms=terms,
             )
