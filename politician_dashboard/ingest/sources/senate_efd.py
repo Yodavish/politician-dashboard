@@ -49,6 +49,7 @@ from pathlib import Path
 from typing import Protocol
 
 from politician_dashboard.ingest.models import Filing
+from politician_dashboard.ingest.sources import legislator_names, names
 from politician_dashboard.ingest.sources.base import (
     DisclosureSource,
     PTR_FILING_TYPE,
@@ -96,69 +97,11 @@ _AGREEMENT_CHECKBOX_NAME = "prohibition_agreement"
 _AGREEMENT_CHECKBOX_VALUE = "1"
 _CSRF_FIELD_NAME = "csrfmiddlewaretoken"
 
-# Generational suffixes that name the family line, not the person; they are
-# dropped on both the eFD display side and the official listing side before
-# state resolution so "McConnell, A. Mitchell Jr." and the official
-# "Mitch McConnell" entry can be compared on their given names alone.
-_SUFFIX_TOKENS = frozenset(
-    {"jr", "sr", "junior", "senior", "ii", "iii", "iv", "v"}
-)
-
-# Given-name relations that are NOT simple truncations of the formal name and
-# therefore cannot be derived by the token-prefix rule alone. The official
-# listing publishes many senators' preferred diminutives (Jim Banks, Mitch
-# McConnell, Chuck Grassley, Mike Crapo ...) while the eFD portal displays the
-# fuller form the filer registered (James E., A. Mitchell ...). This is a
-# general map of standard English given-name relations keyed by the formal
-# token to the possible official primary tokens. Entries are generic
-# nicknames/truncations -- never senator-specific -- and bounded: matching is
-# deliberately NOT a string-prefix test, so e.g. an official primary ``dan``
-# cannot match an eFD display ``Dana`` merely because the strings share a
-# prefix. The relation is consulted in both directions (the official primary
-# may be the formal form with the eFD token the diminutive, e.g.
-# ``christopher`` for eFD ``chris``). A map entry only ever contributes a
-# candidate together with an exact last-name anchor and an ambiguity check
-# (see :func:`_resolve_state`), so an entry can never attribute a filing to a
-# senator outside the same last-name group.
-_DIMINUTIVE_FORMS: dict[str, frozenset[str]] = {
-    "james": frozenset({"jim"}),
-    "william": frozenset({"bill", "billy", "will"}),
-    "michael": frozenset({"mike"}),
-    "robert": frozenset({"bob", "rob", "bobby", "robby"}),
-    "charles": frozenset({"chuck", "charlie"}),
-    "bernard": frozenset({"bernie"}),
-    "bernardo": frozenset({"bernie"}),
-    "richard": frozenset({"dick", "rich", "rick", "ricky"}),
-    "andrew": frozenset({"andy", "drew"}),
-    "stephen": frozenset({"steve", "steven"}),
-    "steven": frozenset({"steve"}),
-    "geoffrey": frozenset({"jeff"}),
-    "jeffrey": frozenset({"jeff"}),
-    "joseph": frozenset({"joe", "joey"}),
-    "gerald": frozenset({"jerry"}),
-    "thomas": frozenset({"tom", "thom", "tommy"}),
-    "john": frozenset({"jack", "johnny"}),
-    "jonathan": frozenset({"jon"}),
-    "mitchell": frozenset({"mitch"}),
-    "timothy": frozenset({"tim", "timmy"}),
-    "christopher": frozenset({"chris"}),
-    "joshua": frozenset({"josh"}),
-    "daniel": frozenset({"dan", "danny"}),
-    "ronald": frozenset({"ron", "ronnie"}),
-    "peter": frozenset({"pete"}),
-    "theodore": frozenset({"ted"}),
-    "alexander": frozenset({"alex", "sandy"}),
-    "samuel": frozenset({"sam", "sammy"}),
-    "edward": frozenset({"ed", "eddie", "ted"}),
-    "margaret": frozenset({"peg", "peggy", "maggie"}),
-    "elizabeth": frozenset({"beth", "betty", "liz", "lizzie"}),
-    "matthew": frozenset({"mat", "matt"}),
-    "anthony": frozenset({"tony"}),
-    "donald": frozenset({"don", "donnie"}),
-    "david": frozenset({"dave"}),
-    "randall": frozenset({"rand"}),
-    "deborah": frozenset({"deb"}),
-}
+# Generational suffixes and the standard given-name relation table are shared
+# with the House Clerk adapter through :mod:`.names`, which is the single source
+# of truth. They used to be duplicated here, which let the two chambers drift:
+# a relation present in one adapter and missing in the other resolved a filing
+# in one chamber and refused it in the other for identical names.
 
 _PTR_REPORT_LABEL = re.compile(
     r"Periodic Transaction Report for (?P<date>\d{2}/\d{2}/\d{4})"
@@ -533,7 +476,18 @@ def _office_name_parts(office: str, first: str, last: str) -> tuple[str, str]:
 
 
 def _normalize_name(value: str) -> str:
-    return re.sub(r"\s+", " ", value.strip().lower()).strip()
+    """Fold a name to the comparison form both chambers use.
+
+    Delegating to :func:`names.normalize_name` is what makes the two chambers
+    agree. This adapter previously lowercased and collapsed whitespace only, so
+    it compared the accented spelling in the reference roster literally: a
+    filing recorded as "Lujan" did not match the snapshot's "Luján" here, while
+    the House adapter -- which has always folded diacritics -- matched it. The
+    same person therefore resolved in one chamber and was refused in the other.
+    Folding is applied to both sides of every comparison, and a genuine
+    ambiguity still fails closed.
+    """
+    return names.normalize_name(value)
 
 
 def _normalize_reference_surname(value: str) -> str:
@@ -541,71 +495,38 @@ def _normalize_reference_surname(value: str) -> str:
 
     Some eFD office labels append a suffix to the surname (for example,
     ``Justice II``), while the reference snapshot stores the surname alone.
-    Keep suffix-only values unchanged; correcting those malformed snapshot
-    entries is a separate data issue.
+    Keep suffix-only values unchanged; a snapshot that stored a bare suffix as
+    a surname is a generation bug, not something this comparison can repair.
     """
     tokens = _normalize_name(value).split()
-    if len(tokens) > 1 and tokens[-1].strip(".,'\u2019") in _SUFFIX_TOKENS:
+    if len(tokens) > 1 and legislator_names.is_suffix_token(tokens[-1]):
         tokens.pop()
     return " ".join(tokens)
 
 
-def _given_name_tokens(value: str) -> set[str]:
-    """Significant given-name tokens of a name.
+def _given_names_agree(
+    efd_given: str, official_first: str, official_given: str | None = None
+) -> bool:
+    """Whether an eFD display given name matches an official senator name.
 
-    Tokens are lowercased, stripped of punctuation, and generational suffixes
-    (see :data:`_SUFFIX_TOKENS`) are removed so both the eFD display name and
-    the official first-name field are reduced to the same vocabulary. Middle
-    initials and middle names are kept: they carry distinguishing evidence
-    and are harmless to the primary-given-name comparison below.
+    Delegates to :func:`names.given_names_agree` so the Senate and the House
+    apply one bounded correspondence to identical names. Matching is limited to
+    exact token equality and the enumerated standard relations in
+    :data:`names._DIMINUTIVE_FORMS`, consulted in both directions (official
+    ``mitch`` for eFD ``mitchell``, eFD ``chris`` for official
+    ``christopher``). No string-prefix test is applied, so an official ``dan``
+    cannot match an eFD ``Dana``, ``Daniela``, or ``Danielle``.
+
+    ``official_given`` is the full given-name text an official listing
+    publishes. It is consulted together with ``official_first`` rather than in
+    place of it, because either field may be the abbreviated form of the same
+    person: a record whose official form is "J.D. Vance" carries the registered
+    display name in ``official_given`` while ``official_first`` is the formal
+    "James David", and a filing recorded under "J.D." matches only the former.
     """
-    tokens: set[str] = set()
-    for token in value.strip().lower().split():
-        token = token.strip(".,'\u2019")
-        if not token or token in _SUFFIX_TOKENS:
-            continue
-        tokens.add(token)
-    return tokens
-
-
-def _primary_given_token(official_first: str) -> str:
-    """First (given) token of an official first-name field."""
-    token = _normalize_name(official_first).split(" ", 1)[0]
-    return token.strip(".,'\u2019")
-
-
-def _given_names_agree(efd_given: str, official_first: str) -> bool:
-    """Whether an eFD display given name matches an official first-name field.
-
-    Matching is deliberately bounded. The official senator's *primary* given
-    name token (from ``official_first``) matches an eFD given-name token only
-    when it (a) equals it exactly, or (b) is a known standard given-name
-    relation of it enumerated in :data:`_DIMINUTIVE_FORMS` (e.g. official
-    ``mitch`` for eFD ``mitchell``, official ``jim`` for eFD ``james``,
-    official ``christopher`` for eFD ``chris``). The enumerated relation is
-    consulted in *both* directions: the eFD token may be the formal form and
-    the official primary the diminutive (``mitchell``/``mitch``), or the eFD
-    token may be the diminutive and the official primary the formal form
-    (``chris``/``christopher``). No generic string-prefix test is applied, so
-    e.g. an official ``dan`` cannot match an eFD ``Dana``, ``Daniela``, or
-    ``Danielle`` merely by sharing the ``dan`` prefix. Middle names and
-    initials may be present or absent on either side; an official field that
-    yields no primary token can never match.
-    """
-    efd_tokens = _given_name_tokens(efd_given)
-    if not efd_tokens:
-        return False
-    primary = _primary_given_token(official_first)
-    if not primary:
-        return False
-    for token in efd_tokens:
-        if token == primary:
-            return True
-        if primary in _DIMINUTIVE_FORMS.get(token, ()):
-            return True
-        if token in _DIMINUTIVE_FORMS.get(primary, ()):
-            return True
-    return False
+    return names.given_names_agree(
+        efd_given, official_first, official_given=official_given
+    )
 
 
 class SenateEfdSource(DisclosureSource):
@@ -861,6 +782,15 @@ class SenateMember:
     first_name: str
     state: str
     terms: tuple[SenateMemberTerm, ...]
+    given_name: str = ""
+    """Full given-name text the official listing publishes.
+
+    Defaults to empty so existing construction sites keep working; the resolver
+    then relies on ``first_name`` alone. Regenerated snapshots populate it (see
+    ``senate_members_refresh``) with the official form, which is what lets a
+    filing recorded under a registered display name such as "J.D. Vance" reach
+    a senator whose ``first_name`` is the formal "James David".
+    """
 
 
 def _parse_member_term(entry: object, bioguide_id: str) -> SenateMemberTerm:
@@ -942,6 +872,12 @@ def parse_senate_members_json(data: bytes) -> list[SenateMember]:
             raise SenateStateResolveError(
                 f"Senate member {bioguide_id} has no terms"
             )
+        # Optional on purpose: a snapshot generated before given names were
+        # recorded still parses, and every member simply falls back to
+        # ``first_name`` (the same rule the House snapshot parser uses).
+        given_name = entry.get("given_name")
+        if not isinstance(given_name, str) or not given_name:
+            given_name = first_name
         terms = tuple(
             _parse_member_term(term, bioguide_id) for term in raw_terms
         )
@@ -952,6 +888,7 @@ def parse_senate_members_json(data: bytes) -> list[SenateMember]:
                 first_name=first_name,
                 state=state,
                 terms=terms,
+                given_name=given_name,
             )
         )
     if not members:
@@ -1032,9 +969,10 @@ def _resolve_state(
     ordinary Senator rows still require service on the received date.
 
     Safety invariant (never guessing): the last-name anchor keeps comparison
-    inside one surname group, and :func:`_given_names_agree` is a *primary
-    given-name* correspondence, so middle/initial/suffix noise cannot
-    attribute a filing to the wrong senator. If zero senators satisfy the
+    inside one surname group, and :func:`_given_names_agree` admits only exact
+    given-name tokens and the enumerated standard relations, so
+    middle/initial/suffix noise cannot attribute a filing to the wrong senator.
+    If zero senators satisfy the
     rule, or more than one does (a real ambiguity -- or a vacancy day on
     which no member with that identity served), resolution fails with
     :class:`SenateStateResolveError` rather than guessing.
@@ -1057,7 +995,9 @@ def _resolve_state(
         for member in members:
             if _normalize_reference_surname(member.last_name) != snapshot_last_key:
                 continue
-            if not _given_names_agree(first, member.first_name):
+            if not _given_names_agree(
+                first, member.first_name, official_given=member.given_name
+            ):
                 continue
             identity_hits.append(member)
             if anchor_date is not None and not _serves_on(member, anchor_date):

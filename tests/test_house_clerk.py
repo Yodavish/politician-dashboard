@@ -1352,6 +1352,53 @@ class TestNames:
     def test_accented_tokens_are_transliterated(self):
         assert names.given_names_agree("José", "Jose") or names.given_names_agree("Jose", "José")
 
+    def test_both_official_given_fields_are_consulted(self):
+        """Neither official field is discarded in favour of the other.
+
+        Each field can be the abbreviated one, so a filer recorded under the
+        formal name must still match when the official given-name text is the
+        nickname (and vice versa). Selecting one field with
+        ``official_given or official_first`` dropped the other, which is what
+        made a filing recorded as "Patrick Fallon" unresolvable for an
+        official form of "Pat Fallon".
+        """
+        # official_given is the nickname; the formal first name still matches.
+        assert names.given_names_agree("Patrick", "Patrick", official_given="Pat")
+        # official_given is the formal name; the nickname still matches.
+        assert names.given_names_agree("Pat", "Patrick", official_given="Patrick")
+        # An unrelated given name matches neither field.
+        assert not names.given_names_agree("Peter", "Patrick", official_given="Pat")
+        assert not names.given_names_agree("Piotr", "Patrick", official_given="Pat")
+        # Evidence only ever adds candidates within one surname group; a given
+        # name that is in neither field is refused even when the other field
+        # does match something.
+        assert not names.given_names_agree("Piotr", "Patrick", official_given="Patrick")
+        # An exact match on either official form is sufficient, because the
+        # official form is the name the member registered. Two candidates in
+        # one surname group are caught by the resolver's ambiguity check, not
+        # by withholding evidence here.
+        assert names.given_names_agree("Pat", "Patricia", official_given="Pat")
+
+    def test_standard_nickname_relations_added_for_historical_filers(self):
+        """The three relations the 2020-2023 historical run was missing.
+
+        Each is a general standard English given-name relation, not an alias
+        for a member: the same relation applies to anyone with that name.
+        """
+        # Cindy Axne files as "Cynthia Axne".
+        assert names.given_names_agree("Cynthia", "Cynthia", official_given="Cindy")
+        assert names.given_names_agree("Cindy", "Cynthia", official_given="Cynthia")
+        # Kenneth R. Buck files as "Ken Buck".
+        assert names.given_names_agree("Kenneth", "Kenneth", official_given="Ken")
+        assert names.given_names_agree("Ken", "Kenneth", official_given="Kenneth")
+        # Patrick Fallon files as "Pat Fallon".
+        assert names.given_names_agree("Patrick", "Patrick", official_given="Pat")
+        # The relations are bounded: a shared prefix is not a relation, and a
+        # given name in neither official field is refused.
+        assert not names.given_names_agree("Cinder", "Cynthia", official_given="Cindy")
+        assert not names.given_names_agree("Kendra", "Kenneth", official_given="Ken")
+        assert not names.given_names_agree("Piotr", "Patrick", official_given="Pat")
+
 
 class TestHouseFetchIndexWiring:
     """fetch_index validates PTR filings against the roster end-to-end."""
@@ -1402,6 +1449,60 @@ class TestHouseFetchIndexWiring:
         assert by_doc["20032063"].bioguide_id == "R000600"
         assert by_doc["10000001"].bioguide_id is None
         assert by_doc["20032062"].state_district == "AL04"  # original preserved
+
+    @pytest.mark.parametrize(
+        ("doc_id", "raw_date", "expected"),
+        [
+            ("8220118", "1/29/2024", date(2024, 1, 29)),
+            ("20025103", "5/20/2024", date(2024, 5, 20)),
+        ],
+    )
+    def test_given_name_tail_in_last_field_resolves_against_production_roster(
+        self, monkeypatch, doc_id, raw_date, expected
+    ):
+        # The two literal 2024FD rows that used to abort the whole 2024
+        # ingestion. The packaged snapshot is used, so this covers the
+        # generated alternate end to end.
+        xml = (
+            "<FinancialDisclosure>"
+            "<Member><Prefix>Hon.</Prefix><Last>Paulina Luna</Last><First>Anna</First>"
+            "<Suffix />"
+            f"<FilingType>P</FilingType><StateDst>FL13</StateDst><Year>2024</Year>"
+            f"<FilingDate>{raw_date}</FilingDate><DocID>{doc_id}</DocID></Member>"
+            "</FinancialDisclosure>"
+        )
+        self._mock_urlopen(monkeypatch, self._zip_with_xml(xml))
+        source = HouseClerkSource(members=load_default_house_members())
+
+        filing = source.fetch_index(2024)[0]
+
+        assert filing.bioguide_id == "L000596"
+        # Source fields survive verbatim: resolution is a side effect, not a
+        # rewrite of what the Clerk published.
+        assert filing.first == "Anna"
+        assert filing.last == "Paulina Luna"
+        assert filing.state_district == "FL13"
+        assert filing.filing_date == expected
+
+    def test_postnominal_credentials_match_member_without_changing_source_fields(
+        self, monkeypatch
+    ):
+        xml = (
+            "<FinancialDisclosure>"
+            "<Member><Last>Dunn, MD, FACS</Last><First>Neal Patrick</First>"
+            "<FilingType>P</FilingType><StateDst>FL02</StateDst><Year>2024</Year>"
+            "<FilingDate>11/19/2024</FilingDate><DocID>20026250</DocID></Member>"
+            "</FinancialDisclosure>"
+        )
+        self._mock_urlopen(monkeypatch, self._zip_with_xml(xml))
+        source = HouseClerkSource(members=load_default_house_members())
+
+        filing = source.fetch_index(2024)[0]
+
+        assert filing.bioguide_id == "D000628"
+        assert filing.first == "Neal Patrick"
+        assert filing.last == "Dunn, MD, FACS"
+        assert filing.filing_date == date(2024, 11, 19)
 
     def test_post_service_ptr_of_uniquely_identified_member_resolves(self, monkeypatch):
         # Santos was expelled 2023-12-01 (the term end is inclusive). A PTR

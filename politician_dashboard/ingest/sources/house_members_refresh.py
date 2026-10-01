@@ -34,11 +34,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import urllib.request
 from datetime import date, datetime
 from pathlib import Path
+
+from politician_dashboard.ingest.sources import legislator_names
 
 DATASET_CUR = "https://unitedstates.github.io/congress-legislators/legislators-current.json"
 DATASET_HIST = "https://unitedstates.github.io/congress-legislators/legislators-historical.json"
@@ -132,96 +133,27 @@ def _source_member_sort_key(member: dict) -> tuple[str, str, str]:
     )
 
 
-_SUFFIX_TOKEN_PATTERN = frozenset(
-    {"jr", "sr", "junior", "senior", "ii", "iii", "iv", "v"}
-)
-
-_NAME_RUN_PATTERN = re.compile(r"[^\W\d_]+", re.UNICODE)
-
-
 def _surname_from_official_full(record: dict) -> str:
     """Best-effort official surname from a congress-legislators record.
 
-    ``name.last`` is authoritative whenever it appears as a contiguous phrase
-    of ``official_full`` without a real name following it (the trailing
-    ``"Jr."`` of "Donald M. Payne, Jr." is a generational suffix, not a
-    sibling name). Compound surnames ("Wasserman Schultz") survive because the
-    match is on the whole phrase, not a single token. It is only corrected
-    when the source carried an artifact that puts a non-name in ``name.last``
-    (e.g. ``name.last`` ``==`` ``"Graham Nordone"`` vs official ``"Graham"``).
+    Delegates to :func:`legislator_names.surname_from_official_full` so the
+    House and the Senate cannot disagree about the same person: the two
+    snapshots are generated from the same community dataset, and only one
+    derivation of "which text is this person's surname" should exist.
     """
-    name = record.get("name") or {}
-    last = (name.get("last") or "").strip()
-    official_full = (name.get("official_full") or "").strip()
-    if not last or not official_full:
-        return last
-    tokens = [token for token in official_full.split() if token]
-    phrase = last.split()
-    positions: list[int] = []
-    for index in range(len(tokens) - len(phrase) + 1):
-        if all(
-            tokens[index + offset].strip(".,'\u2019").lower()
-            == phrase[offset].lower()
-            for offset in range(len(phrase))
-        ):
-            positions.append(index)
-    if positions:
-        trailing = tokens[positions[0] + len(phrase):]
-        if all(
-            token.strip(".,'\u2019").lower() in _SUFFIX_TOKEN_PATTERN
-            for token in trailing
-        ):
-            return last
-    meaningful = [
-        token
-        for token in tokens
-        if token.strip(".,'\u2019").lower() not in _SUFFIX_TOKEN_PATTERN
-    ]
-    if meaningful:
-        return meaningful[-1]
-    return last
+    return legislator_names.surname_from_official_full(record)
 
 
 def _official_given_tokens(record: dict) -> list[str]:
     """Official given-name tokens of a record, in source order.
 
-    Preferred derivation is the ``official_full`` name minus its surname and
-    generational-suffix tokens ("April McClain Delaney" with the compound
-    surname "McClain Delaney" leaves "April"; "Linda T. Sánchez" leaves "Linda
-    T."). The union record's optional ``middle`` field is not part of the
-    registered name ("April Lynn" vs the official "April McClain"), so
-    ``first`` + ``middle`` is only a fallback when ``official_full`` is empty
-    or yields nothing. House filings are filed under the member's fuller
-    registered given name (e.g. "Greg Steube" for the "W. Gregory Steube"
-    recorded by the Clerk, "Rohit Khanna" for "Ro Khanna"), so the resolver
-    matches against the full given name, never just the first token.
+    Delegates to :func:`legislator_names.official_given_tokens`. House filings
+    are filed under the member's fuller registered given name (e.g. "Greg
+    Steube" for the "W. Gregory Steube" recorded by the Clerk, "Rohit Khanna"
+    for "Ro Khanna"), so the resolver matches against the full given name, never
+    just the first token.
     """
-    name = record.get("name") or {}
-    official_full = (name.get("official_full") or "").strip()
-    if official_full:
-        surname = (name.get("last") or "").strip()
-        surname_tokens = {
-            token.strip(".,'’").lower()
-            for token in surname.split()
-            if token.strip(".,'’")
-        }
-        given_tokens = []
-        for token in official_full.split():
-            cleaned = token.strip(".,'’").lower()
-            if not cleaned or cleaned in _SUFFIX_TOKEN_PATTERN:
-                continue
-            if cleaned in surname_tokens:
-                continue
-            given_tokens.append(token)
-        if given_tokens:
-            return given_tokens
-    first = (name.get("first") or "").strip()
-    middle = (name.get("middle") or "").strip()
-    if not first:
-        return []
-    if not middle:
-        return [first]
-    return [first, middle]
+    return legislator_names.official_given_tokens(record)
 
 
 def _official_given_name(record: dict) -> str:
@@ -248,12 +180,7 @@ def _surname_filer_alternate(record: dict) -> str:
     official_full = (name.get("official_full") or "").strip()
     if not last or not official_full:
         return ""
-    tokens = [token for token in official_full.split() if token]
-    meaningful = [
-        token
-        for token in tokens
-        if token.strip(".,'\u2019").lower() not in _SUFFIX_TOKEN_PATTERN
-    ]
+    meaningful = legislator_names.meaningful_name_tokens(official_full)
     if not meaningful:
         return ""
     last_token = meaningful[-1]
@@ -263,15 +190,12 @@ def _surname_filer_alternate(record: dict) -> str:
 
 
 def _is_initial_token(token: str) -> bool:
-    """Whether a name token is only initials, e.g. ``"B."``, ``"J"``, ``"J. J."``.
+    """Whether a name token is only initials, e.g. ``"B."``, ``"J"``.
 
-    Every alphabetic run in the token must be a single letter, so a real
-    multi-letter name part never qualifies. A compound-initial middle name
-    ("Eric J. J. Massa" records the middle as ``"J. J."``) is one token that
-    must be recognised as initials, not as a full name.
+    Delegates to :func:`legislator_names.is_initial_token` so the two chambers
+    agree on which tokens are initials rather than names.
     """
-    runs = _NAME_RUN_PATTERN.findall(token)
-    return bool(runs) and all(len(run) == 1 for run in runs)
+    return legislator_names.is_initial_token(token)
 
 
 def _surname_filer_alternates(record: dict) -> list[str]:

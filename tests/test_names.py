@@ -9,7 +9,14 @@ additionally folds, and the ordinary ASCII names it must leave alone.
 
 from __future__ import annotations
 
-from politician_dashboard.ingest.sources import names
+import pytest
+
+from politician_dashboard.ingest.sources import (
+    house_members_refresh,
+    legislator_names,
+    names,
+    senate_members_refresh,
+)
 
 
 class TestNormalizeName:
@@ -79,3 +86,179 @@ class TestGivenNameTokens:
 
     def test_accents_are_still_stripped_from_tokens(self):
         assert names.given_name_tokens("José") == names.given_name_tokens("Jose")
+
+
+class TestSuffixTokens:
+    """The generational-suffix vocabulary shared by both chambers."""
+
+    def test_suffixes_are_recognised(self):
+        for token in ("Jr.", "Sr.", "II", "iii", "IV", "V", "Junior", "Senior"):
+            assert legislator_names.is_suffix_token(token)
+
+    def test_real_name_parts_are_not_suffixes(self):
+        # Whole-token comparison, never a prefix: a surname or given name that
+        # merely starts with a suffix is a real name part.
+        for token in ("Ivan", "Ivanovich", "Seniorita", "Vale", "Virgil"):
+            assert not legislator_names.is_suffix_token(token)
+
+    def test_names_module_and_shared_module_agree(self):
+        assert names.SUFFIX_TOKENS == legislator_names.SUFFIX_TOKENS
+
+
+class TestSurnameFromOfficialFull:
+    """Which text of a raw record is the person's surname.
+
+    Both snapshots are generated from the same community dataset, so this
+    derivation has to be right in one place only.
+    """
+
+    @staticmethod
+    def _record(last, official_full, first="Given", **extra):
+        return {
+            "id": {"bioguide": "X000000"},
+            "name": {"first": first, "last": last, "official_full": official_full,
+                     **extra},
+        }
+
+    @pytest.mark.parametrize(
+        ("last", "official_full", "expected"),
+        [
+            # The defect: a comma-separated generational suffix is not a
+            # surname, and must not become one.
+            ("Manchin", "Joe Manchin, III", "Manchin"),
+            ("Rockefeller", "John D. Rockefeller, IV", "Rockefeller"),
+            ("King", "Angus S. King Jr.", "King"),
+            ("Casey", "Robert P. Casey, Jr.", "Casey"),
+            # A compound surname survives intact.
+            ("Van Hollen", "Chris Van Hollen", "Van Hollen"),
+            ("Wasserman Schultz", "Maxine Waters", "Waters"),
+            # Source artifact in name.last: the official name is authoritative.
+            ("Graham Nordone", "Darline Graham", "Graham"),
+            # Ordinary records keep the roster surname.
+            ("McConnell", "Mitch McConnell", "McConnell"),
+            ("Fallon", "Pat Fallon", "Fallon"),
+        ],
+    )
+    def test_surname_derivation(self, last, official_full, expected):
+        assert legislator_names.surname_from_official_full(
+            self._record(last, official_full)
+        ) == expected
+
+    def test_missing_fields_are_not_invented(self):
+        # No official_full: the roster surname is all there is.
+        assert legislator_names.surname_from_official_full(
+            self._record("Public", "")
+        ) == "Public"
+        # No roster surname and no way to attribute one confidently: nothing is
+        # invented. The snapshot generator then rejects the record outright
+        # rather than storing a guess.
+        assert legislator_names.surname_from_official_full(
+            self._record("", "John D. Rockefeller, IV")
+        ) == ""
+        # An official_full that is only a suffix leaves the roster surname alone
+        # rather than storing the suffix.
+        assert legislator_names.surname_from_official_full(
+            self._record("Manchin", "III")
+        ) == "Manchin"
+
+    def test_both_chambers_derive_the_same_surname(self):
+        records = [
+            self._record("Manchin", "Joe Manchin, III", first="Joe"),
+            self._record("Rockefeller", "John D. Rockefeller, IV", first="John"),
+            self._record("Graham Nordone", "Darline Graham", first="Darline"),
+            self._record("Van Hollen", "Chris Van Hollen", first="Chris"),
+        ]
+        for record in records:
+            assert house_members_refresh._surname_from_official_full(
+                record
+            ) == legislator_names.surname_from_official_full(record)
+            assert senate_members_refresh._surname_from_official_full(
+                record
+            ) == legislator_names.surname_from_official_full(record)
+
+
+class TestOfficialGivenTokens:
+    """The official given-name text a filing is matched against."""
+
+    @staticmethod
+    def _record(name):
+        return {"id": {"bioguide": "X000000"}, "name": name}
+
+    def test_registered_display_name_is_preferred_over_the_formal_name(self):
+        # The portal files under the registered form.
+        assert legislator_names.official_given_name(
+            self._record(
+                {"first": "James David", "last": "Vance",
+                 "official_full": "J.D. Vance"}
+            )
+        ) == "J.D."
+        assert legislator_names.official_given_name(
+            self._record(
+                {"first": "Gregg", "last": "Steube",
+                 "official_full": "Greg Steube"}
+            )
+        ) == "Greg"
+
+    def test_surname_and_suffixes_are_removed_from_the_given_names(self):
+        assert legislator_names.official_given_tokens(
+            self._record(
+                {"first": "John", "last": "Rockefeller",
+                 "official_full": "John D. Rockefeller, IV"}
+            )
+        ) == ["John", "D."]
+        # A compound surname is removed as a whole, not token by token.
+        assert legislator_names.official_given_tokens(
+            self._record(
+                {"first": "April", "last": "McClain Delaney",
+                 "official_full": "April McClain Delaney"}
+            )
+        ) == ["April"]
+
+    def test_first_and_middle_are_the_fallback(self):
+        # No official_full, and an optional middle the registered name may not
+        # contain.
+        assert legislator_names.official_given_tokens(
+            self._record({"first": "April", "middle": "Lynn", "last": "Delaney"})
+        ) == ["April", "Lynn"]
+        assert legislator_names.official_given_tokens(
+            self._record({"first": "April", "last": "Delaney"})
+        ) == ["April"]
+        # An official_full that yields nothing usable falls back too.
+        assert legislator_names.official_given_tokens(
+            self._record(
+                {"first": "April", "middle": "Lynn", "last": "Delaney",
+                 "official_full": "Delaney"}
+            )
+        ) == ["April", "Lynn"]
+        assert legislator_names.official_given_tokens(
+            self._record({"last": "Delaney", "official_full": "Delaney"})
+        ) == []
+
+    def test_both_chambers_derive_the_same_given_names(self):
+        record = self._record(
+            {"first": "James David", "last": "Vance",
+             "official_full": "J.D. Vance"}
+        )
+        assert house_members_refresh._official_given_tokens(
+            record
+        ) == legislator_names.official_given_tokens(record)
+
+
+class TestInitialAndMeaningfulTokens:
+    def test_initial_tokens(self):
+        for token in ("B.", "J", "J. J.", "D"):
+            assert legislator_names.is_initial_token(token)
+        for token in ("Bob", "Jo", "Dwan"):
+            assert not legislator_names.is_initial_token(token)
+        # Dots separate initials, so this is still two initials.
+        assert legislator_names.is_initial_token("J.J.")
+
+    def test_meaningful_tokens_drop_suffixes_only(self):
+        # Only the suffix is dropped; the remaining tokens are returned as
+        # written in the source, which is what the filer-alternate derivation
+        # compares against the roster surname.
+        assert legislator_names.meaningful_name_tokens(
+            "John D. Rockefeller IV"
+        ) == ["John", "D.", "Rockefeller"]
+        assert legislator_names.meaningful_name_tokens("III") == []
+        assert legislator_names.meaningful_name_tokens("") == []

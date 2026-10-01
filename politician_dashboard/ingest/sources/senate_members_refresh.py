@@ -12,6 +12,18 @@ against official ``bioguide.congress.gov`` JSON (fetchable only through
 browser-class access) and the verified facts are recorded in the snapshot's
 ``boundary_members`` block as provenance -- never as resolver logic.
 
+A small number of source records assert a service interval that is known to be
+wrong (see :data:`VERIFIED_SERVICE_CORRECTIONS`). Those are applied to the
+snapshot's ``terms`` and are the only verified facts that affect resolution.
+They remain reference-data corrections, not identity rules: a corrected
+interval only changes which filing dates the service-interval test admits, and
+a filing still needs an exact surname anchor and an agreeing given name.
+
+Each member records both ``first_name`` (the formal name in ``name.first``) and
+``given_name`` (the full given-name text the official listing publishes). The
+eFD portal files under the registered display form, so a senator registered as
+"J.D." has to remain matchable when ``name.first`` is the formal "James David".
+
 Usage::
 
     python -m politician_dashboard.ingest.sources.senate_members_refresh
@@ -31,6 +43,8 @@ import sys
 import urllib.request
 from datetime import date, datetime
 from pathlib import Path
+
+from . import legislator_names
 
 DATASET_CUR = "https://unitedstates.github.io/congress-legislators/legislators-current.json"
 DATASET_HIST = "https://unitedstates.github.io/congress-legislators/legislators-historical.json"
@@ -90,18 +104,19 @@ def _source_member_sort_key(member: dict) -> tuple[str, str, str]:
 def _surname_from_official_full(record: dict) -> str:
     """Best-effort official surname from a congress-legislators record.
 
-    ``name.last`` is authoritative except when it is not a suffix of the
-    ``official_full`` name (a data artifact, e.g. Darline Graham's ``last`` is
-    ``"Graham Nordone"`` while ``official_full`` is ``"Darline Graham"``).
-    Compound surnames ("Van Hollen") and suffixes ("King, Jr.") survive the
-    suffix check unmodified.
+    Delegates to the shared derivation in
+    :mod:`politician_dashboard.ingest.sources.legislator_names` so this chamber
+    and the House cannot disagree about a shared person.
+
+    The previous local implementation used ``official_full.endswith(last)`` and
+    fell back to the final whitespace token, which made the *generational
+    suffix* the surname whenever ``official_full`` spelled the suffix after a
+    comma -- ``"Joe Manchin, III"`` stored ``last_name="III"`` and
+    ``"John D. Rockefeller, IV"`` stored ``last_name="IV"``. Both senators then
+    became unresolvable: the suffix is the only surname the resolver had to
+    match on, and no filing is ever filed under it.
     """
-    name = record.get("name") or {}
-    last = (name.get("last") or "").strip()
-    official_full = (name.get("official_full") or "").strip()
-    if official_full and last and not official_full.endswith(last):
-        last = official_full.split()[-1]
-    return last
+    return legislator_names.surname_from_official_full(record)
 
 
 def _term_overlaps(term: dict, start: str, end: str) -> bool:
@@ -111,6 +126,61 @@ def _term_overlaps(term: dict, start: str, end: str) -> bool:
     if not term_start:
         return False
     return not (term_start > end or (term_end and term_end < start))
+
+
+# Service-interval corrections for records whose community source is known-wrong.
+#
+# These are *reference-data* corrections, not identity-matching exceptions: no
+# name, alias or match rule is derived from them. The resolver still requires an
+# exact surname anchor, an agreeing given name, and a filing date inside a
+# recorded service interval; a corrected interval only changes which dates that
+# interval test admits. This is the same concept as
+# ``BIOGUIDE_VERIFIED_BOUNDARIES`` above, promoted from provenance to applied
+# because these entries change what the snapshot asserts.
+#
+# Each entry names the bioguide_id, the term ``start`` it applies to, and the
+# replacement ``end``; the value is a full documented fact, never a guess.
+# Regenerating the snapshot is deterministic: the same input always yields the
+# same correction, and ``--check`` will fail if a source term stops matching
+# the ``start`` named here (meaning the source data was fixed upstream and the
+# correction should be revisited rather than silently applied).
+VERIFIED_SERVICE_CORRECTIONS: dict[str, dict[str, str]] = {
+    "V000137": {
+        "start": "2023-01-03",
+        "end": "2031-01-03",
+        "verified": "Source records the end as 2025-01-09, which is already in "
+        "the past while the record is still listed in legislators-current.json, "
+        "and is the only currently-serving senator whose term does not end on a "
+        "January 3 Congress boundary. Replaced with 2031-01-03, the end of the "
+        "2025-2031 term class he was elected to in November 2024, matching the "
+        "boundary every other currently-serving senator uses.",
+    },
+}
+
+
+def _apply_service_corrections(
+    bioguide_id: str, terms: list[dict]
+) -> list[dict]:
+    """Apply any verified service-interval correction to ``terms``.
+
+    Raises ``ValueError`` when a correction is declared for a term this record
+    does not have, so a source-side fix is surfaced instead of being silently
+    overridden by a now-stale correction.
+    """
+    correction = VERIFIED_SERVICE_CORRECTIONS.get(bioguide_id)
+    if correction is None:
+        return terms
+    start, end = correction["start"], correction["end"]
+    for term in terms:
+        if term["start"] == start:
+            term["end"] = end
+            return terms
+    raise ValueError(
+        f"verified service correction for {bioguide_id} expects a term starting "
+        f"{start}, but the source record has "
+        f"{[t['start'] for t in terms]!r}; the correction is stale and should "
+        f"be revisited"
+    )
 
 
 def _iso_date(value: str) -> str:
@@ -145,6 +215,12 @@ def build_members_snapshot(
         last = _surname_from_official_full(record)
         if not first or not last:
             raise ValueError(f"member {bioguide} missing name.first/last")
+        # The eFD portal files under the display form in ``official_full``
+        # ("J.D. Vance") while ``name.first`` is the formal name ("James
+        # David"). Recording the official given name -- as the House snapshot
+        # already does -- lets the resolver match the form the portal shows
+        # without inventing an alias.
+        given = legislator_names.official_given_name(record) or first
 
         sen_terms: list[dict] = []
         for term in record.get("terms") or []:
@@ -168,6 +244,8 @@ def build_members_snapshot(
         if not sen_terms:
             continue
 
+        sen_terms = _apply_service_corrections(bioguide, sen_terms)
+
         # Establishes state/party for the Senate service; source terms within
         # a contiguous run share one state and party. Include all overlapping
         # terms so interval lookups can rely on inclusive date ranges.
@@ -177,6 +255,7 @@ def build_members_snapshot(
                 "bioguide_id": bioguide,
                 "last_name": last,
                 "first_name": first,
+                "given_name": given,
                 "state": (sample.get("state") or "").strip(),
                 "party": (sample.get("party") or "").strip() or None,
                 "terms": sorted(sen_terms, key=lambda t: t["start"]),
@@ -203,11 +282,16 @@ def build_members_snapshot(
             "generation date through browser-class access (scripted gov "
             "requests are blocked); those verified facts are provenance only "
             "and are never consulted by the resolver, which matches identities "
-            "and Senate service intervals and otherwise fails closed."
+            "and Senate service intervals and otherwise fails closed. Service "
+            "intervals listed under 'verified_service_corrections' replace a "
+            "known-wrong source interval and do affect the snapshot's terms; "
+            "they carry no identity information and cannot by themselves "
+            "attribute a filing to a senator."
         ),
         "coverage_start": history_start,
         "generated_at": generated_at,
         "boundary_members": BIOGUIDE_VERIFIED_BOUNDARIES,
+        "verified_service_corrections": VERIFIED_SERVICE_CORRECTIONS,
         "members": members,
     }
 
@@ -281,7 +365,7 @@ def diff_snapshots(committed: dict, fresh: dict) -> list[str]:
             )
             continue
         m, f = members[bioguide], fresh_members[bioguide]
-        for field in ("last_name", "first_name", "state", "party"):
+        for field in ("last_name", "first_name", "given_name", "state", "party"):
             if m.get(field) != f.get(field):
                 diffs.append(_diff_line(m, field, m.get(field), f.get(field)))
         if m.get("terms") != f.get("terms"):

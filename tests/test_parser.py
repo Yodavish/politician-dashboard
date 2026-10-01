@@ -11,7 +11,9 @@ from politician_dashboard.ingest.parser import (
     ParseError,
     ScannedPdfError,
     _extract_metadata,
+    _page_columns,
     _parse_amount_bounds,
+    _spine_from_row,
     _parse_asset_type_code,
     _parse_transaction_type_date_amount,
     _source_id_owner,
@@ -99,6 +101,11 @@ class TestSourceIdOwner:
         sid, owner = _source_id_owner("DC Some Corp (SC) [ST]")
         assert sid is None
         assert owner == "DC"
+
+    def test_jt_owner(self) -> None:
+        sid, owner = _source_id_owner("JT Berkshire Hathaway Inc. (BRK.B) [ST]")
+        assert sid is None
+        assert owner == "JT"
 
     def test_empty_line(self) -> None:
         sid, owner = _source_id_owner("")
@@ -268,6 +275,17 @@ class TestParseTransactions:
         assert txns[0]["owner"] is None
         assert txns[0]["asset_name"] == "Activision Blizzard, Inc (ATVI)"
 
+    def test_jt_owner_is_not_left_in_asset_name(self) -> None:
+        text = (
+            "ID Owner Asset Transaction Date Notification Amount Cap.\n"
+            "Type Date Gains >\n$200?\n"
+            "JT Berkshire Hathaway Inc. New Common Stock (BRK.B) [OP] "
+            "P 01/13/2025 01/13/2025 $1,001 - $15,000\n"
+        )
+        (txn,) = parse_transactions(text)
+        assert txn["owner"] == "JT"
+        assert txn["asset_name"] == "Berkshire Hathaway Inc. New Common Stock (BRK.B)"
+
     def test_split_amount(self) -> None:
         text = (
             "T\n"
@@ -297,6 +315,21 @@ class TestParseTransactions:
         assert txns[0]["txn_type"] == "S (partial)"
         assert txns[0]["ticker"] is None
         assert "912797JR9" in txns[0]["asset_name"]
+
+    def test_exchange_is_a_transaction_boundary_and_d_notes_are_preserved(self) -> None:
+        text = (
+            "ID Owner Asset Transaction Date Notification Amount Cap.\n"
+            "Type Date Gains >\n$200?\n"
+            "SP Tempus AI (TEM) [ST] P 01/16/2026 01/16/2026 $50,001 - $100,000\n"
+            "F S: New\nD: Exercised options at a strike price of $20.\n"
+            "SP Versant Media (VSNT) [ST] E 01/02/2026 01/02/2026 $15.00\n"
+            "F S: New\nD : Received shares in a spinoff.\n"
+        )
+        txns = parse_transactions(text)
+        assert len(txns) == 2
+        assert [t["txn_type"] for t in txns] == ["P", "E"]
+        assert txns[0]["notes"] == "Exercised options at a strike price of $20."
+        assert txns[1]["notes"] == "Received shares in a spinoff."
 
     def test_multi_line_asset(self) -> None:
         text = (
@@ -412,6 +445,63 @@ class TestParsePtrPdf:
         ]
         assert len(mmm_txns) >= 1
 
+        # These source rows previously inherited the repeated "$200?" header
+        # or leaked amount text into the asset cell.
+        abbot = next(t for t in result["transactions"] if t["ticker"] == "ABT" and t["txn_date"] == date(2019, 9, 27))
+        assert (abbot["amount_min"], abbot["amount_max"]) == (15001, 50000)
+        assert "$200" not in abbot["asset_name"]
+        bayer = next(t for t in result["transactions"] if t["ticker"] == "BAYZF" and t["txn_date"] == date(2018, 6, 7))
+        assert (bayer["amount_min"], bayer["amount_max"]) == (1001, 15000)
+        assert "$1,001" not in bayer["asset_name"]
+
+    def test_pelosi_20033725_separates_tempus_and_versant(self) -> None:
+        result = parse_ptr_pdf((FIXTURES / "2026" / "20033725.pdf").read_bytes())
+        tempus = [t for t in result["transactions"] if t["ticker"] == "TEM"]
+        versant = [t for t in result["transactions"] if t["ticker"] == "VSNT"]
+        assert len(tempus) == len(versant) == 1
+        assert (tempus[0]["amount_min"], tempus[0]["amount_max"]) == (50001, 100000)
+        assert tempus[0]["notes"].startswith("Exercised 50 call options")
+        assert (versant[0]["amount_min"], versant[0]["amount_max"]) == (15, 15)
+        assert versant[0]["amount_raw"] == "$15.00"
+        assert versant[0]["notes"].startswith("776 shares and cash in lieu")
+
+    def test_jt_owner_in_house_filing_20024346(self) -> None:
+        result = parse_ptr_pdf((FIXTURES / "2025" / "20024346.pdf").read_bytes())
+        txn = next(
+            t for t in result["transactions"]
+            if t["ticker"] == "BRK.B"
+            and t["txn_type"] == "P"
+            and t["txn_date"] == date(2025, 1, 13)
+            and t["asset_type_code"] == "OP"
+            and t["amount_min"] == 1001
+        )
+        assert txn["owner"] == "JT"
+        assert txn["asset_name"] == "Berkshire Hathaway Inc. New Common Stock (BRK.B)"
+
+    def test_pelosi_20035143_option_strikes_do_not_change_amounts(self) -> None:
+        result = parse_ptr_pdf((FIXTURES / "2026" / "20035143.pdf").read_bytes())
+        txns = result["transactions"]
+        bloom_option = next(t for t in txns if t["ticker"] == "BE" and t["asset_type_code"] == "OP" and t["txn_date"] == date(2026, 7, 24))
+        intel_option = next(t for t in txns if t["ticker"] == "INTC" and t["asset_type_code"] == "OP")
+        intel_stock = next(t for t in txns if t["ticker"] == "INTC" and t["asset_type_code"] == "ST")
+        assert (bloom_option["amount_min"], bloom_option["amount_max"]) == (1000001, 5000000)
+        assert (intel_option["amount_min"], intel_option["amount_max"]) == (250001, 500000)
+        assert (intel_stock["amount_min"], intel_stock["amount_max"]) == (500001, 1000000)
+        for txn in (bloom_option, intel_option, intel_stock):
+            assert "$" not in txn["asset_name"]
+            assert "$200" not in txn["asset_name"]
+
+    def test_laurel_20034694_nokia_partial_sale_survives_header(self) -> None:
+        result = parse_ptr_pdf((FIXTURES / "2026" / "20034694.pdf").read_bytes())
+        nokia = next(
+            t for t in result["transactions"]
+            if t["ticker"] == "NOK" and t["txn_type"] == "S (partial)"
+            and t["txn_date"] == date(2026, 6, 2)
+        )
+        assert (nokia["amount_min"], nokia["amount_max"]) == (1001, 15000)
+        assert nokia["notes"] == "Call option contracts"
+        assert "$200" not in nokia["asset_name"]
+
     def test_scanned_pdf_raises(self) -> None:
         pdf_bytes = (FIXTURES / "2025" / "8220747.pdf").read_bytes()
         with pytest.raises(ScannedPdfError):
@@ -445,3 +535,219 @@ class TestParsePtrPdf:
         (t,) = parse_ptr_pdf(pdf_bytes)["transactions"]
         assert t["txn_date"] == date(2026, 12, 26)
         assert t["txn_date"] != date(2025, 12, 26)
+
+
+# ---------------------------------------------------------------------------
+# Font-induced letter-case handling
+#
+# Several House PTR PDFs embed a font whose glyph-to-Unicode mapping flips
+# letter case throughout the text layer ("Filing Id #", "iD owner asset
+# transaction", "[sT]", "P t r"). Structural matching must tolerate that
+# without rewriting the extracted data.
+# ---------------------------------------------------------------------------
+
+
+def _minimal_pdf(lines: list[str]) -> bytes:
+    """Build a one-page PDF with a text layer holding *lines*."""
+    content = "BT /F1 11 Tf 40 700 Td 14 TL\n"
+    for line in lines:
+        escaped = line.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
+        content += f"({escaped}) Tj T*\n"
+    content += "ET"
+    objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        "/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        f"<< /Length {len(content)} >>\nstream\n{content}\nendstream",
+    ]
+    out = "%PDF-1.4\n"
+    offsets: list[int] = []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += f"{number} 0 obj\n{body}\nendobj\n"
+    start_xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n"
+    out += "".join(f"{offset:010d} 00000 n \n" for offset in offsets)
+    out += (
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{start_xref}\n%%EOF\n"
+    )
+    return out.encode("latin-1")
+
+
+class TestCaseInsensitiveStructure:
+    def test_filing_id_label_matches_any_casing(self) -> None:
+        for line, expected in (
+            ("Filing ID #20016985", "20016985"),
+            ("Filing Id #20017471", "20017471"),
+            ("FILING ID #20015000", "20015000"),
+        ):
+            assert _extract_metadata([line])["filing_id"] == expected
+
+    def test_filing_id_label_survives_a_leading_prefix(self) -> None:
+        # Amended filings render the label after an "Eagle Seal" stamp.
+        assert (
+            _extract_metadata(["Eagle Seal Filing Id #20017999"])["filing_id"]
+            == "20017999"
+        )
+
+    def test_metadata_prefixes_match_any_casing(self) -> None:
+        for line in ("name: Hon. A B", "Name: Hon. A B", "NAME: Hon. A B"):
+            assert _extract_metadata([line])["name"] == " Hon. A B"
+
+    def test_missing_filing_id_fails_soft(self) -> None:
+        # The index DocID is authoritative, so an unrecognizable label must
+        # not discard an otherwise readable filing.
+        result = parse_ptr_pdf(_minimal_pdf(["P t r", "some other content"]))
+        assert result["filing_id"] is None
+
+    def test_recognizable_filing_id_is_returned_verbatim(self) -> None:
+        result = parse_ptr_pdf(
+            _minimal_pdf(["Filing Id #20017471", "name: Hon. Test Member"])
+        )
+        assert result["filing_id"] == "20017471"
+        assert result["representative_name"] == " Hon. Test Member"
+
+    def test_column_anchors_match_any_casing(self) -> None:
+        # The lowercase header is what previously made entire pages yield no
+        # transactions, because the column anchors went undetected.
+        positions = {
+            "ID": 20, "Owner": 50, "Asset": 100, "Transaction": 246,
+            "Date": 312, "Notification": 367, "Amount": 432, "Cap.": 505,
+        }
+        for fold in (lambda s: s, str.casefold):
+            rows = [
+                [
+                    {"text": fold(label), "x0": x, "top": 100.0}
+                    for label, x in sorted(positions.items(), key=lambda p: p[1])
+                ]
+            ]
+            columns = _page_columns(rows)
+            assert columns is not None
+            assert columns["asset"] == 100.0
+            assert columns["type"] == 246.0
+
+    def test_asset_type_code_is_canonicalized(self) -> None:
+        # Filtered by exact match in the API, so the vocabulary must not split.
+        assert _parse_asset_type_code("Amazon.com, Inc. (aCN) [sT]") == "ST"
+        assert _parse_asset_type_code("Northwest Natural [ST]") == "ST"
+
+    def test_owner_token_is_canonicalized(self) -> None:
+        assert _source_id_owner("20017471 sP") == ("20017471", "SP")
+        assert _source_id_owner("20017471 SP") == ("20017471", "SP")
+
+    def test_extracted_data_is_not_rewritten_to_upper_case(self) -> None:
+        # Matching is case-insensitive, but source text is stored as rendered.
+        result = parse_ptr_pdf(
+            _minimal_pdf(
+                [
+                    "Filing Id #20017471",
+                    "filer information",
+                    "name: Hon. Earl Blumenauer",
+                    "State/District: oR03",
+                ]
+            )
+        )
+        assert result["representative_name"] == " Hon. Earl Blumenauer"
+        assert result["state_district"] == " oR03"
+
+
+# ---------------------------------------------------------------------------
+# Transaction-type marker casing
+#
+# The garbled font renders the ``S`` sale marker as lowercase ``s``. The marker
+# is a closed vocabulary: it must be recognized case-insensitively, normalized
+# to a canonical value for the API's exact-match filter, and never extended to
+# admit qualifiers such as ``(partial)`` as a type in their own right.
+# ---------------------------------------------------------------------------
+
+
+_SPINE_COLUMNS = {
+    "type": 100.0,
+    "txn_date": 160.0,
+    "notification": 220.0,
+    "amount": 280.0,
+}
+
+
+def _spine_row(marker: str, *extra: str) -> list[dict[str, object]]:
+    """Build one word row: marker then dates, inside the type/date columns."""
+    texts = [marker, *extra, "03/18/2020", "03/20/2020", "$15,001 - $50,000"]
+    xs = [110.0, *[130.0] * len(extra), 165.0, 225.0, 290.0]
+    return [
+        {"text": text, "x0": x, "x1": x + 30.0, "top": 100.0}
+        for text, x in zip(texts, xs)
+    ]
+
+
+class TestTransactionTypeMarkerCasing:
+    @pytest.mark.parametrize("marker", ["P", "p"])
+    def test_purchase_marker(self, marker: str) -> None:
+        spine = _spine_from_row(_spine_row(marker), _SPINE_COLUMNS)
+        assert spine is not None
+        assert spine[0] == "P"
+
+    @pytest.mark.parametrize("marker", ["S", "s"])
+    def test_sale_marker_is_canonicalized(self, marker: str) -> None:
+        spine = _spine_from_row(_spine_row(marker), _SPINE_COLUMNS)
+        assert spine is not None
+        assert spine[0] == "S"
+
+    @pytest.mark.parametrize("qualifier", ["(partial)", "(Partial)", "(PARTIAL)"])
+    @pytest.mark.parametrize("marker", ["S", "s"])
+    def test_partial_sale_is_canonicalized(self, marker: str, qualifier: str) -> None:
+        spine = _spine_from_row(_spine_row(marker, qualifier), _SPINE_COLUMNS)
+        assert spine is not None
+        assert spine[0] == "S (partial)"
+        assert spine[1] == date(2020, 3, 18)
+        assert spine[2] == date(2020, 3, 20)
+
+    @pytest.mark.parametrize("marker", ["E", "e"])
+    def test_exchange_marker(self, marker: str) -> None:
+        spine = _spine_from_row(_spine_row(marker), _SPINE_COLUMNS)
+        assert spine is not None
+        assert spine[0] == "E"
+
+    @pytest.mark.parametrize("qualifier", ["(partial)", "(Partial)", "partial"])
+    def test_partial_qualifier_is_never_a_standalone_type(self, qualifier: str) -> None:
+        # A free-standing qualifier must never be promoted to a transaction
+        # type; only an existing S plus the qualifier forms "S (partial)".
+        assert _spine_from_row(_spine_row(qualifier), _SPINE_COLUMNS) is None
+
+    @pytest.mark.parametrize(
+        "marker", ["SP", "DC", "JT", "$1,001", "PS", "PP", "SS", "SEE", "sale"]
+    )
+    def test_invalid_markers_are_rejected(self, marker: str) -> None:
+        assert _spine_from_row(_spine_row(marker), _SPINE_COLUMNS) is None
+
+    @pytest.mark.parametrize("marker", ["P", "E"])
+    def test_partial_qualifier_does_not_upgrade_other_types(self, marker: str) -> None:
+        # Only "S" takes a partial qualifier. "P (partial)" is not a real House
+        # form; the qualifier must not be absorbed into a different type.
+        spine = _spine_from_row(_spine_row(marker, "(partial)"), _SPINE_COLUMNS)
+        assert spine is not None
+        assert spine[0] == marker
+
+    def test_partial_qualifier_outside_the_type_column_is_ignored(self) -> None:
+        row = _spine_row("s")
+        stray = {"text": "(partial)", "x0": 400.0, "x1": 460.0, "top": 100.0}
+        row = sorted(row + [stray], key=lambda word: word["x0"])
+        spine = _spine_from_row(row, _SPINE_COLUMNS)
+        assert spine is not None
+        assert spine[0] == "S"
+
+    def test_lowercase_marker_yields_the_same_transaction_as_uppercase(self) -> None:
+        # The garbled font must not change the parsed result, only whether it
+        # is recognized at all.
+        upper = _spine_from_row(_spine_row("S", "(partial)"), _SPINE_COLUMNS)
+        lower = _spine_from_row(_spine_row("s", "(partial)"), _SPINE_COLUMNS)
+        assert upper == lower
+        assert lower is not None and lower[0] == "S (partial)"
+
+    def test_marker_case_does_not_alter_the_dates(self) -> None:
+        for marker in ("S", "s", "P", "p", "E", "e"):
+            spine = _spine_from_row(_spine_row(marker), _SPINE_COLUMNS)
+            assert spine is not None
+            assert spine[1:] == (date(2020, 3, 18), date(2020, 3, 20))

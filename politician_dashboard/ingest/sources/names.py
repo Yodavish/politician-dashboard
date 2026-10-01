@@ -11,8 +11,9 @@ exactly or is a standard English given-name relation enumerated in
 :data:`_DIMINUTIVE_FORMS`, consulted in both directions. No string-prefix or
 fuzzy matching is used, so ``dan`` is never treated as a match for ``Dana``.
 
-The Senate adapter predates this module and keeps its own private copies;
-they are intentionally not touched here to avoid churn in working code.
+This module is the single source of truth for the correspondence: the Senate
+eFD adapter imports these helpers instead of carrying its own copy, so a
+relation added here applies to both chambers and cannot drift between them.
 """
 
 from __future__ import annotations
@@ -20,13 +21,15 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from . import legislator_names
+
 # Generational suffixes that name the family line, not the person; they are
 # dropped on both the display side and the official listing side before name
 # comparison so e.g. "McConnell, A. Mitchell Jr." and the official "Mitch
-# McConnell" compare on their given names alone.
-_SUFFIX_TOKENS = frozenset(
-    {"jr", "sr", "junior", "senior", "ii", "iii", "iv", "v"}
-)
+# McConnell" compare on their given names alone. The vocabulary itself lives in
+# :mod:`legislator_names`, which the snapshot generators also use, so a suffix
+# can never be a name part in one component and a surname in another.
+SUFFIX_TOKENS: frozenset[str] = legislator_names.SUFFIX_TOKENS
 
 # Given-name relations that are NOT simple truncations of the formal name and
 # therefore cannot be derived by the token-prefix rule alone. This is a general
@@ -78,6 +81,9 @@ _DIMINUTIVE_FORMS: dict[str, frozenset[str]] = {
     "gregory": frozenset({"greg"}),
     "rohit": frozenset({"ro"}),
     "valerie": frozenset({"val", "valery"}),
+    "patrick": frozenset({"pat"}),
+    "cynthia": frozenset({"cindy"}),
+    "kenneth": frozenset({"ken"}),
 }
 
 
@@ -130,7 +136,7 @@ def given_name_tokens(value: str) -> set[str]:
     tokens: set[str] = set()
     for token in _transliterate(value).strip().lower().split():
         token = token.strip(".,'\u2019")
-        if not token or token in _SUFFIX_TOKENS:
+        if not token or token in SUFFIX_TOKENS:
             continue
         tokens.add(token)
     return tokens
@@ -147,12 +153,22 @@ def given_names_agree(
 ) -> bool:
     """Whether a filer's displayed given name matches a member's official name.
 
-    Matching is deliberately bounded. The official member's given names come
-    from ``official_given`` (default: the ``official_first`` field alone). A
-    filer given-name token matches an official one when it (a) equals it
-    exactly, or (b) is a known standard given-name relation of it or vice versa
-    (:data:`_DIMINUTIVE_FORMS`). No generic string-prefix test is applied, so
-    ``dan`` never matches ``Dana``.
+    Matching is deliberately bounded. The official member's given-name evidence
+    is the *union* of the two official fields: ``official_given`` (the full
+    given-name text an official listing publishes) and ``official_first`` (the
+    formal first-name field). A filer given-name token matches an official one
+    when it (a) equals it exactly, or (b) is a known standard given-name
+    relation of it or vice versa (:data:`_DIMINUTIVE_FORMS`). No generic
+    string-prefix test is applied, so ``dan`` never matches ``Dana``.
+
+    Both official fields are consulted because each can be the abbreviated one
+    and neither is authoritative on its own: a record whose official form is
+    "Pat Fallon" has ``official_given`` "Pat" but ``official_first``
+    "Patrick", and a filing recorded under "Patrick Fallon" matches only the
+    latter. Preferring one field with ``official_given or official_first``
+    discarded the other and made such a filing unresolvable. Taking the union
+    adds evidence but never relaxes the surname anchor or the ambiguity check
+    that guard attribution.
 
     Single-letter tokens (dangling initials such as ``C.``/``J.`` in
     "C. Scott Franklin") are ignored on the official side: a filer who uses
@@ -166,8 +182,9 @@ def given_names_agree(
     filer_tokens = given_name_tokens(filer_given)
     if not filer_tokens:
         return False
-    official_text = official_given or official_first
-    official_tokens = given_name_tokens(official_text)
+    official_tokens = given_name_tokens(official_given or "") | given_name_tokens(
+        official_first
+    )
     if not official_tokens:
         return False
     meaningful = {token for token in official_tokens if len(token) > 1}

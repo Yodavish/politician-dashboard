@@ -11,6 +11,7 @@ Conventions intentionally match ``tests/test_house_clerk.py``.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import urllib.parse
 from datetime import date
@@ -33,6 +34,7 @@ from politician_dashboard.ingest.sources.senate_efd import (
     _office_name_parts,
     _resolve_state,
     _serves_on,
+    _service_ended_before,
     classify_senate_doc_id,
     classify_view_link,
     load_default_senate_members,
@@ -688,6 +690,121 @@ class TestSenateStateResolution:
         )
         assert state == "OK"
 
+    @staticmethod
+    def _rubio_member(terms=None):
+        return SenateMember(
+            bioguide_id="R000595",
+            last_name="Rubio",
+            first_name="Marco",
+            state="FL",
+            terms=terms or (
+                SenateMemberTerm(date(2011, 1, 5), date(2025, 1, 20)),
+            ),
+        )
+
+    def test_explicit_former_senator_resolves_after_service_ends(self):
+        rows = [[
+            "Marco",
+            "Rubio",
+            "Former Senator (Former Senator)",
+            f'<a href="/search/view/ptr/{ELECTRONIC_DETAIL_ID}/">PTR</a>',
+            "02/06/2025",
+        ]]
+        payload = json.dumps(
+            {"draw": 1, "recordsTotal": 1, "recordsFiltered": 1, "data": rows}
+        ).encode()
+        transport = _MemoryTransport()
+        transport.listing_pages = [payload]
+        source = SenateEfdSource(
+            transport=transport, members=[self._rubio_member()]
+        )
+
+        filings = source.fetch_index(2025)
+
+        assert len(filings) == 1
+        assert filings[0].first == "Marco"
+        assert filings[0].last == "Rubio"
+        assert filings[0].filing_date == date(2025, 2, 6)
+        assert filings[0].state_district == "FL00"
+
+    def test_packaged_snapshot_resolves_real_former_senator_filing(self):
+        """Regression: production Senate 2025 failed to index filing Rubio.
+
+        The former-senator fallback is exercised above against a synthetic
+        member. This asserts the *committed* reference snapshot carries the
+        service history needed to resolve the real eFD office cell
+        ``"Former Senator (Former Senator)"``, whose names the listing leaves
+        in the first/last cells rather than the office cell.
+
+        It couples the resolver to the packaged asset, so regenerating
+        ``data/senate_members.json`` with missing or wrong end dates fails
+        here rather than in a scheduled production run.
+        """
+        members = load_default_senate_members()
+        rubio = [m for m in members if m.bioguide_id == "R000595"]
+        assert len(rubio) == 1, "expected exactly one Marco Rubio in the snapshot"
+        # Resigned 2025-01-20, so he does not cover the 2025-02-06 received
+        # date. Every term must be closed for the fallback to apply.
+        assert rubio[0].last_name == "Rubio"
+        assert rubio[0].first_name == "Marco"
+        assert rubio[0].state == "FL"
+        assert _service_ended_before(rubio[0], date(2025, 2, 6))
+        assert not _serves_on(rubio[0], date(2025, 2, 6))
+
+        first, last = _office_name_parts(
+            "Former Senator (Former Senator)", "Marco", "Rubio"
+        )
+        assert (first, last) == ("Marco", "Rubio")
+        assert _resolve_state(
+            last,
+            first,
+            {},
+            office="Former Senator (Former Senator)",
+            anchor_date=date(2025, 2, 6),
+            members=members,
+        ) == "FL"
+
+    def test_ordinary_senator_cannot_use_post_service_fallback(self):
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Rubio", "Marco", {}, office="Rubio, Marco (Senator)",
+                anchor_date=date(2025, 2, 6), members=[self._rubio_member()],
+            )
+
+    def test_former_senator_requires_all_service_to_end_before_received_date(self):
+        member = self._rubio_member(
+            terms=(
+                SenateMemberTerm(date(2011, 1, 5), date(2025, 1, 20)),
+                SenateMemberTerm(date(2025, 3, 1), date(2031, 1, 3)),
+            )
+        )
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Rubio", "Marco", {},
+                office="Former Senator (Former Senator)",
+                anchor_date=date(2025, 2, 6), members=[member],
+            )
+
+    def test_former_senator_requires_unique_historical_identity(self):
+        members = [
+            self._rubio_member(),
+            SenateMember(
+                bioguide_id="R999999",
+                last_name="Rubio",
+                first_name="Marco",
+                state="TX",
+                terms=(
+                    SenateMemberTerm(date(2017, 1, 3), date(2021, 1, 3)),
+                ),
+            ),
+        ]
+        with pytest.raises(SenateStateResolveError, match="Ambiguous former senator"):
+            _resolve_state(
+                "Rubio", "Marco", {},
+                office="Former Senator (Former Senator)",
+                anchor_date=date(2025, 2, 6), members=members,
+            )
+
     def test_snapshot_service_interval_is_inclusive_of_last_day(self):
         # Mullin's term ends on (and includes) 2026-03-23, matching the
         # bioguide endDate of his resignation.
@@ -715,6 +832,165 @@ class TestSenateStateResolution:
             anchor_date=date(2025, 1, 14),
             members=[justice],
         ) == "WV"
+
+    def test_suffix_derived_senators_resolve_from_their_own_surname(self):
+        """Members whose stored surname was a bare suffix must resolve.
+
+        The generated snapshot stored the generational suffix as the surname
+        for these senators ("Joe Manchin, III" -> last_name "III"), so a real
+        2020-2023 filing recorded as "Manchin, Joe" had no member to match.
+        Resolution is still a plain exact last-name comparison; only the
+        snapshot's surname field is corrected.
+        """
+        manchin = SenateMember(
+            bioguide_id="M001183",
+            last_name="Manchin",
+            first_name="Joe",
+            given_name="Joe",
+            state="WV",
+            terms=(
+                SenateMemberTerm(date(2019, 1, 3), date(2025, 1, 3)),
+            ),
+        )
+        assert _resolve_state(
+            "Manchin", "Joe", {},
+            office="Manchin, Joe (Senator)",
+            anchor_date=date(2021, 6, 15), members=[manchin],
+        ) == "WV"
+        # The surname anchor stays exact: a filing under the suffix token is
+        # not accepted, and a different surname is not accepted either.
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "III", "Joe", {},
+                office="III, Joe (Senator)",
+                anchor_date=date(2021, 6, 15), members=[manchin],
+            )
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Rockefeller", "Joe", {},
+                office="Rockefeller, Joe (Senator)",
+                anchor_date=date(2021, 6, 15), members=[manchin],
+            )
+        # And a given name that is not a standard relation of "Joe" is
+        # refused.
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Manchin", "Joshua", {},
+                office="Manchin, Joshua (Senator)",
+                anchor_date=date(2021, 6, 15), members=[manchin],
+            )
+
+    def test_registered_nickname_resolves_against_the_official_given_name(self):
+        """A filing recorded under a registered display name resolves.
+
+        The eFD portal files under the name the member registered ("J.D."), so
+        a member whose ``first_name`` is the formal "James David" was
+        unreachable. The snapshot now carries the official given name as well;
+        the formal name still resolves, and an unrelated given name still
+        fails closed.
+        """
+        vance = SenateMember(
+            bioguide_id="V000137",
+            last_name="Vance",
+            first_name="James David",
+            given_name="J.D.",
+            state="OH",
+            terms=(
+                SenateMemberTerm(date(2023, 1, 3), date(2031, 1, 3)),
+            ),
+        )
+        for given in ("J.D.", "J.D", "James David", "James"):
+            assert _resolve_state(
+                "Vance", given, {},
+                office=f"Vance, {given} (Senator)",
+                anchor_date=date(2023, 6, 1), members=[vance],
+            ) == "OH"
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Vance", "Joshua", {},
+                office="Vance, Joshua (Senator)",
+                anchor_date=date(2023, 6, 1), members=[vance],
+            )
+
+    def test_snapshot_given_name_never_relaxes_the_surname_anchor(self):
+        vance = SenateMember(
+            bioguide_id="V000137",
+            last_name="Vance",
+            first_name="James David",
+            given_name="J.D.",
+            state="OH",
+            terms=(
+                SenateMemberTerm(date(2023, 1, 3), date(2031, 1, 3)),
+            ),
+        )
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "DeSantis", "J.D.", {},
+                office="DeSantis, J.D. (Senator)",
+                anchor_date=date(2023, 6, 1), members=[vance],
+            )
+
+    def test_standard_nickname_resolves_against_a_formal_official_name(self):
+        """A general given-name relation, not a member-specific alias.
+
+        "Pat" is the registered form for a senator whose official listing
+        publishes "Patrick"; the relation is the standard English one and
+        applies to any member with that given name.
+        """
+        toomey = SenateMember(
+            bioguide_id="T000461",
+            last_name="Toomey",
+            first_name="Patrick",
+            given_name="Patrick J.",
+            state="PA",
+            terms=(
+                SenateMemberTerm(date(2011, 1, 5), date(2023, 1, 3)),
+            ),
+        )
+        assert _resolve_state(
+            "Toomey", "Pat", {},
+            office="Toomey, Pat (Senator)",
+            anchor_date=date(2021, 10, 8), members=[toomey],
+        ) == "PA"
+        # A relation must not bridge two different people.
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Toomey", "Patricia", {},
+                office="Toomey, Patricia (Senator)",
+                anchor_date=date(2021, 10, 8), members=[toomey],
+            )
+
+    def test_accented_surname_folds_the_same_way_in_both_chambers(self):
+        """A diacritic difference must not be chamber-dependent.
+
+        The snapshot stores "Luján"; a filing routinely spells it "Lujan". The
+        House adapter has always folded diacritics, so this adapter did too once
+        the two shared the same normalization. Folding is applied to both
+        sides, and a different surname still fails closed.
+        """
+        lujan = SenateMember(
+            bioguide_id="L000570",
+            last_name="Luján",
+            first_name="Ben Ray",
+            given_name="Ben Ray",
+            state="NM",
+            terms=(
+                SenateMemberTerm(date(2019, 1, 3), date(2025, 1, 3)),
+            ),
+        )
+        for last in ("Luján", "Lujan", "LUJAN"):
+            assert _resolve_state(
+                last, "Ben Ray", {},
+                office=f"{last}, Ben Ray (Senator)",
+                anchor_date=date(2021, 5, 1), members=[lujan],
+            ) == "NM"
+        with pytest.raises(SenateStateResolveError):
+            _resolve_state(
+                "Luján", "Ben Ray", {},
+                office="Luján, Ben Ray (Senator)",
+                anchor_date=date(2021, 5, 1),
+                members=[dataclasses.replace(lujan, last_name="Lujan Alaniz")],
+            )
 
     def test_justice_surname_suffix_preserves_service_date_boundary(self):
         justice = SenateMember(
@@ -986,6 +1262,186 @@ class TestSenateMembersSnapshot:
         boundaries = snapshot["boundary_members"]
         assert "M001190" in boundaries and "A000383" in boundaries
         assert "G000359" in boundaries and "G000608" in boundaries
+
+    def test_generational_suffix_is_never_stored_as_the_surname(self):
+        """A comma-suffixed official name must not yield last_name 'III'/'IV'.
+
+        ``official_full`` = "Joe Manchin, III" with ``name.last`` = "Manchin"
+        fails a naive ``official_full.endswith(last)`` test, so a fallback to
+        the final whitespace token stored the *suffix* as the surname. The
+        senator then became unresolvable: no filing is ever filed under
+        "Manchin, III" as a last name. Both senators below are real snapshot
+        members whose stored surname was the bare suffix.
+        """
+        records = [
+            {
+                "id": {"bioguide": "M001183"},
+                "name": {
+                    "first": "Joe",
+                    "last": "Manchin",
+                    "official_full": "Joe Manchin, III",
+                },
+                "terms": [
+                    {"type": "sen", "start": "2023-01-03", "end": "2025-01-03",
+                     "state": "WV", "party": "Democratic"}
+                ],
+            },
+            {
+                "id": {"bioguide": "R000361"},
+                "name": {
+                    "first": "John",
+                    "middle": "D.",
+                    "last": "Rockefeller",
+                    "official_full": "John D. Rockefeller, IV",
+                },
+                "terms": [
+                    {"type": "sen", "start": "2011-01-03", "end": "2015-01-03",
+                     "state": "WV", "party": "Democratic"}
+                ],
+            },
+        ]
+        by_id = {
+            m["bioguide_id"]: m
+            for m in build_members_snapshot(records)["members"]
+        }
+        assert by_id["M001183"]["last_name"] == "Manchin"
+        assert by_id["R000361"]["last_name"] == "Rockefeller"
+        # The suffix is dropped from the given names too, leaving the real
+        # name parts only.
+        assert by_id["R000361"]["given_name"] == "John D."
+
+    def test_official_given_name_is_recorded_from_official_full(self):
+        """A registered display given name is stored alongside the formal one.
+
+        The eFD portal files under the form the senator registered ("J.D."),
+        while ``name.first`` is the formal "James David". Storing only the
+        formal name made the display form unmatchable.
+        """
+        records = [{
+            "id": {"bioguide": "V000137"},
+            "name": {
+                "first": "James David",
+                "last": "Vance",
+                "official_full": "J.D. Vance",
+            },
+            "terms": [
+                {"type": "sen", "start": "2023-01-03", "end": "2031-01-03",
+                 "state": "OH", "party": "Republican"}
+            ],
+        }]
+        member = build_members_snapshot(records)["members"][0]
+        assert member["first_name"] == "James David"
+        assert member["given_name"] == "J.D."
+        assert member["last_name"] == "Vance"
+
+    def test_given_name_defaults_to_first_name_when_official_full_is_absent(self):
+        records = [{
+            "id": {"bioguide": "X000001"},
+            "name": {"first": "Jane", "middle": "Q", "last": "Public"},
+            "terms": [
+                {"type": "sen", "start": "2023-01-03", "end": "2025-01-03",
+                 "state": "ZZ", "party": "Independent"}
+            ],
+        }]
+        member = build_members_snapshot(records)["members"][0]
+        assert member["given_name"] == "Jane Q"
+
+    def test_verified_service_correction_replaces_a_known_wrong_term_end(self):
+        records = [{
+            "id": {"bioguide": "V000137"},
+            "name": {"first": "James David", "last": "Vance",
+                     "official_full": "J.D. Vance"},
+            "terms": [
+                {"type": "sen", "start": "2023-01-03", "end": "2025-01-09",
+                 "state": "OH", "party": "Republican"}
+            ],
+        }]
+        member = build_members_snapshot(records)["members"][0]
+        assert member["terms"] == [
+            {"start": "2023-01-03", "end": "2031-01-03"}
+        ]
+        # The correction is recorded as provenance, and is a service interval
+        # only -- it carries no identity information.
+        corrections = build_members_snapshot(records)[
+            "verified_service_corrections"
+        ]
+        assert corrections["V000137"]["end"] == "2031-01-03"
+        assert "identity" not in corrections["V000137"]
+
+    def test_stale_service_correction_raises_instead_of_being_applied(self):
+        """A correction must not silently apply to a term that no longer exists.
+
+        If upstream fixed the source interval, ``--check`` regenerating from the
+        corrected source would keep rewriting it back; raising surfaces the
+        stale entry instead.
+        """
+        records = [{
+            "id": {"bioguide": "V000137"},
+            "name": {"first": "James David", "last": "Vance",
+                     "official_full": "J.D. Vance"},
+            "terms": [
+                {"type": "sen", "start": "2019-01-03", "end": "2025-01-09",
+                 "state": "OH", "party": "Republican"}
+            ],
+        }]
+        with pytest.raises(ValueError, match="stale"):
+            build_members_snapshot(records)
+
+    def test_service_correction_leaves_other_members_untouched(self):
+        records = [{
+            "id": {"bioguide": "K000383"},
+            "name": {"first": "Angus", "last": "King",
+                     "official_full": "Angus S. King Jr."},
+            "terms": [
+                {"type": "sen", "start": "2025-01-03", "end": "2031-01-03",
+                 "state": "ME", "party": "Democratic"}
+            ],
+        }]
+        member = build_members_snapshot(records)["members"][0]
+        assert member["last_name"] == "King"
+        assert member["terms"] == [
+            {"start": "2025-01-03", "end": "2031-01-03"}
+        ]
+
+    def test_diff_reports_given_name_drift(self):
+        committed = build_members_snapshot(
+            _sample_records(), generated_at="2026-09-22"
+        )
+        records = [dict(r) for r in _sample_records()]
+        for r in records:
+            if r["id"]["bioguide"] == "M001190":
+                r["name"] = dict(r["name"], official_full="Markwayne S. Mullin")
+        fresh = build_members_snapshot(records, generated_at="2026-09-22")
+        assert any(
+            "M001190" in d and "given_name" in d
+            for d in diff_snapshots(committed, fresh)
+        )
+
+    def test_packaged_snapshot_stores_no_bare_suffix_as_a_surname(self):
+        """Guard on the committed asset, not just on the generator.
+
+        A generational suffix used to be stored as a member's surname, which
+        made that member unresolvable. Asserting the shape of the shipped file
+        catches a regeneration that reintroduces it.
+        """
+        snapshot = json.loads(
+            (Path(senate_members_refresh.__file__).parent
+             / "data" / "senate_members.json").read_bytes()
+        )
+        suffixes = {"jr", "sr", "ii", "iii", "iv", "v", "junior", "senior"}
+        offenders = [
+            m["last_name"] for m in snapshot["members"]
+            if m["last_name"].strip(".,'’").lower() in suffixes
+        ]
+        assert offenders == []
+
+    def test_packaged_snapshot_records_a_given_name_for_every_member(self):
+        snapshot = json.loads(
+            (Path(senate_members_refresh.__file__).parent
+             / "data" / "senate_members.json").read_bytes()
+        )
+        missing = [m["bioguide_id"] for m in snapshot["members"] if not m.get("given_name")]
+        assert missing == []
 
     def test_missing_bioguide_raises(self):
         records = [{"name": {"first": "X", "last": "Y"},
