@@ -129,7 +129,15 @@ describe("TransactionsPage", () => {
       "href",
       "/filings/20030002",
     );
-    expect(screen.getByTitle(assetName)).toHaveClass("line-clamp-2");
+    expect(screen.getByRole("table")).toHaveClass("min-w-[1472px]");
+    expect(screen.getByText(assetName)).toHaveClass(
+      "whitespace-normal",
+      "break-words",
+      "font-medium",
+    );
+    expect(
+      screen.getAllByRole("link", { name: "Nancy Pelosi" })[0].parentElement,
+    ).toHaveClass("min-w-40");
     expect(
       screen.getByRole("img", { name: /Reported date may be inconsistent/ }),
     ).toBeInTheDocument();
@@ -186,5 +194,23 @@ describe("TransactionsPage", () => {
     );
 
     expect(await screen.findByText("Over $50,000,000")).toBeInTheDocument();
+  });
+
+  it("displays a negative disclosure lag without clamping it", async () => {
+    const anomalousSample = {
+      ...sample,
+      items: [{ ...sample.items[0], disclosure_lag_days: -320 }],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(anomalousSample), { status: 200 })),
+    );
+    render(
+      <MemoryRouter initialEntries={["/transactions"]}>
+        <TransactionsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("-320 days")).toBeInTheDocument();
   });
 });

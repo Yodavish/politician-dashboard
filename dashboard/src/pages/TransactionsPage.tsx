@@ -134,7 +134,7 @@ export default function TransactionsPage() {
       {!loading && !error && data && data.items.length > 0 && (
         <>
           <div className="rounded-lg border">
-            <Table className="min-w-[1100px] table-fixed">
+            <Table className="min-w-[1472px] table-fixed">
               <TableHeader>
                 <TableRow>
                   <SortableTableHead
@@ -142,35 +142,35 @@ export default function TransactionsPage() {
                     sortKey="txn_date"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-32"
+                    className="w-[120px]"
                   />
                   <SortableTableHead
                     label="Politician"
                     sortKey="politician_name"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-36"
+                    className="w-44 min-w-40"
                   />
                   <SortableTableHead
                     label="Asset"
                     sortKey="asset_name"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-[26%] min-w-56"
+                    className="w-[380px] min-w-[380px]"
                   />
                   <SortableTableHead
                     label="Ticker"
                     sortKey="ticker"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-20 text-center"
+                    className="w-[72px] text-center"
                   />
                   <SortableTableHead
                     label="Type"
                     sortKey="txn_type"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-24 text-center"
+                    className="w-[88px] text-center"
                   />
                   <SortableTableHead
                     label="Owner"
@@ -179,21 +179,21 @@ export default function TransactionsPage() {
                     onSort={(sort) => patch({ sort })}
                     className="w-20 text-center"
                   />
-                  <TableHead className="w-32 text-center">Asset Type</TableHead>
+                  <TableHead className="w-[120px] text-center">Asset Type</TableHead>
                   <SortableTableHead
                     label="Amount"
                     sortKey="amount_min"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-40 text-right"
+                    className="w-48 text-right"
                   />
-                  <TableHead className="w-28 text-right">Disclosure Lag</TableHead>
+                  <TableHead className="w-[120px] text-right">Disclosure Lag</TableHead>
                   <SortableTableHead
                     label="Filing"
                     sortKey="doc_id"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-32 text-right"
+                    className="w-[120px] text-right"
                   />
                 </TableRow>
               </TableHeader>
@@ -208,17 +208,14 @@ export default function TransactionsPage() {
                         verifiedDate={t.verified_transaction_date}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="w-44 min-w-40 whitespace-normal break-words">
                       <PoliticianCell
                         id={t.politician_id}
                         name={t.politician_name}
                       />
                     </TableCell>
-                    <TableCell className="w-[26%] min-w-56 whitespace-normal">
-                      <div
-                        className="line-clamp-2 max-w-sm break-words font-medium"
-                        title={t.asset_name}
-                      >
+                    <TableCell className="w-[380px] min-w-[380px] whitespace-normal break-words">
+                      <div className="font-medium whitespace-normal break-words">
                         {t.asset_name}
                       </div>
                     </TableCell>
@@ -229,7 +226,7 @@ export default function TransactionsPage() {
                       {txnTypeLabel(t.txn_type)}
                     </TableCell>
                     <TableCell className="text-center">{t.owner ?? "—"}</TableCell>
-                    <TableCell className="w-32 text-center text-xs whitespace-normal">
+                    <TableCell className="w-[120px] text-center text-xs whitespace-normal">
                       {t.asset_type_code ? assetTypeLabel(t.asset_type_code) : "—"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">
