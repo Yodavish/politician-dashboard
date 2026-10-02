@@ -47,6 +47,7 @@ const filing: FilingDetail = {
     asset_type_code: "ST",
     txn_type: "P",
     txn_date: "2026-12-26",
+    disclosure_lag_days: -320,
     notification_date: "2026-01-21",
     amount_min: 1001,
     amount_max: 15000,

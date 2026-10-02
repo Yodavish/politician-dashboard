@@ -1,10 +1,12 @@
 import { TableHead } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 interface SortableTableHeadProps {
   label: string;
   sortKey: string;
   sort: string;
   onSort: (sort: string) => void;
+  className?: string;
 }
 
 export default function SortableTableHead({
@@ -12,6 +14,7 @@ export default function SortableTableHead({
   sortKey,
   sort,
   onSort,
+  className,
 }: SortableTableHeadProps) {
   const activeKey = sort.startsWith("-") ? sort.slice(1) : sort;
   const active = activeKey === sortKey;
@@ -20,6 +23,7 @@ export default function SortableTableHead({
   return (
     <TableHead
       aria-sort={active ? (descending ? "descending" : "ascending") : "none"}
+      className={cn(className)}
     >
       <button
         type="button"

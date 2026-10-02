@@ -22,6 +22,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -133,63 +134,73 @@ export default function TransactionsPage() {
       {!loading && !error && data && data.items.length > 0 && (
         <>
           <div className="rounded-lg border">
-            <Table>
+            <Table className="min-w-[1100px] table-fixed">
               <TableHeader>
                 <TableRow>
                   <SortableTableHead
-                    label="Date"
+                    label="Trade Date"
                     sortKey="txn_date"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
+                    className="w-32"
                   />
                   <SortableTableHead
                     label="Politician"
                     sortKey="politician_name"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
+                    className="w-36"
                   />
                   <SortableTableHead
                     label="Asset"
                     sortKey="asset_name"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
+                    className="w-[26%] min-w-56"
                   />
                   <SortableTableHead
                     label="Ticker"
                     sortKey="ticker"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
+                    className="w-20 text-center"
                   />
                   <SortableTableHead
                     label="Type"
                     sortKey="txn_type"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
+                    className="w-24 text-center"
                   />
                   <SortableTableHead
                     label="Owner"
                     sortKey="owner"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
+                    className="w-20 text-center"
                   />
+                  <TableHead className="w-32 text-center">Asset Type</TableHead>
                   <SortableTableHead
                     label="Amount"
                     sortKey="amount_min"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
+                    className="w-40 text-right"
                   />
+                  <TableHead className="w-28 text-right">Disclosure Lag</TableHead>
                   <SortableTableHead
                     label="Filing"
                     sortKey="doc_id"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
+                    className="w-32 text-right"
                   />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.items.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums">
                       <TransactionDate
                         txnDate={t.txn_date}
                         flags={t.quality_flags}
@@ -203,23 +214,46 @@ export default function TransactionsPage() {
                         name={t.politician_name}
                       />
                     </TableCell>
-                    <TableCell className="whitespace-normal">
+                    <TableCell className="w-[26%] min-w-56 whitespace-normal">
                       <div
-                        className="line-clamp-2 max-w-xs break-words font-medium"
+                        className="line-clamp-2 max-w-sm break-words font-medium"
                         title={t.asset_name}
                       >
                         {t.asset_name}
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="text-center font-mono text-xs">
                       {t.ticker?.trim() || "—"}
                     </TableCell>
-                    <TableCell>{txnTypeLabel(t.txn_type)}</TableCell>
-                    <TableCell>{t.owner ?? "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="text-center whitespace-nowrap">
+                      {txnTypeLabel(t.txn_type)}
+                    </TableCell>
+                    <TableCell className="text-center">{t.owner ?? "—"}</TableCell>
+                    <TableCell className="w-32 text-center text-xs whitespace-normal">
+                      {t.asset_type_code ? assetTypeLabel(t.asset_type_code) : "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">
                       {formatAmount(t.amount_min, t.amount_max)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">
+                      <span
+                        aria-label={
+                          t.disclosure_lag_days === null
+                            ? "Disclosure lag unavailable"
+                            : undefined
+                        }
+                        className={
+                          t.disclosure_lag_days === null
+                            ? "text-muted-foreground"
+                            : undefined
+                        }
+                      >
+                        {t.disclosure_lag_days === null
+                          ? "—"
+                          : `${t.disclosure_lag_days} ${t.disclosure_lag_days === 1 ? "day" : "days"}`}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
                       <Link
                         to={`/filings/${t.doc_id}`}
                         className="text-primary hover:underline"

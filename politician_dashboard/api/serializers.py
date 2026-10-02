@@ -67,6 +67,11 @@ def transaction_dict(row) -> dict:
         "asset_type_code": asset_type_code,
         "txn_type": txn_type,
         "txn_date": txn_date,
+        "disclosure_lag_days": (
+            None
+            if filing_date is None or txn_date is None
+            else (filing_date - txn_date).days
+        ),
         "notification_date": notification_date,
         "amount_min": float(amount_min),
         # None marks an open-ended amount ("Over $X"); float(None) would raise.

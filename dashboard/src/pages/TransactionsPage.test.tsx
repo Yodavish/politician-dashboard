@@ -20,6 +20,7 @@ const sample = {
       asset_type_code: null,
       txn_type: "P",
       txn_date: "2024-12-01",
+      disclosure_lag_days: null,
       notification_date: "2025-01-01",
       amount_min: 1001,
       amount_max: 15000,
@@ -51,6 +52,7 @@ const sample = {
       asset_type_code: "ST",
       txn_type: "P",
       txn_date: "2024-12-02",
+      disclosure_lag_days: 31,
       notification_date: "2025-01-02",
       amount_min: 15001,
       amount_max: 50000,
@@ -100,8 +102,33 @@ describe("TransactionsPage", () => {
     expect(
       screen.getByRole("columnheader", { name: /Ticker/ }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("—")).toHaveLength(2);
+    const headers = screen.getAllByRole("columnheader").map((header) =>
+      (header.querySelector("button")?.textContent ?? header.textContent ?? "")
+        .replace(/[↑↓]/g, "")
+        .trim(),
+    );
+    expect(headers).toEqual([
+      "Trade Date",
+      "Politician",
+      "Asset",
+      "Ticker",
+      "Type",
+      "Owner",
+      "Asset Type",
+      "Amount",
+      "Disclosure Lag",
+      "Filing",
+    ]);
+    expect(screen.getAllByText("—")).toHaveLength(4);
     expect(screen.getByText("NVDA")).toBeInTheDocument();
+    expect(screen.getByText("Stocks (including ADRs)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Disclosure lag unavailable")).toHaveTextContent("—");
+    expect(screen.getByText("31 days")).toBeInTheDocument();
+    expect(screen.getByText("$15,001 - $50,000")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "20030002" })).toHaveAttribute(
+      "href",
+      "/filings/20030002",
+    );
     expect(screen.getByTitle(assetName)).toHaveClass("line-clamp-2");
     expect(
       screen.getByRole("img", { name: /Reported date may be inconsistent/ }),
@@ -134,5 +161,30 @@ describe("TransactionsPage", () => {
       expect(search.get("sort")).toBe("amount_min");
       expect(search.get("offset")).toBe("0");
     });
+  });
+
+  it("preserves open-ended amount display", async () => {
+    const openEndedSample = {
+      ...sample,
+      items: [
+        {
+          ...sample.items[0],
+          amount_min: 50_000_000,
+          amount_max: null,
+          amount_raw: "Over $50,000,000",
+        },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(openEndedSample), { status: 200 })),
+    );
+    render(
+      <MemoryRouter initialEntries={["/transactions"]}>
+        <TransactionsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Over $50,000,000")).toBeInTheDocument();
   });
 });

@@ -70,6 +70,7 @@ class Transaction(BaseModel):
     asset_type_code: str | None
     txn_type: str
     txn_date: date
+    disclosure_lag_days: int | None
     notification_date: date
     amount_min: float
     # None when the source states only a lower bound (eFD "Over $X" tier).

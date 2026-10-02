@@ -49,6 +49,7 @@ export interface Transaction {
   asset_type_code: string | null;
   txn_type: string;
   txn_date: string;
+  disclosure_lag_days: number | null;
   notification_date: string;
   amount_min: number;
   amount_max: number | null;

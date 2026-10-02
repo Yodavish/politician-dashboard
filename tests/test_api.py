@@ -221,7 +221,8 @@ class TestTransactions:
         first = body["items"][0]
         # Default sort is -txn_date
         for key in ("id", "filing_id", "doc_id", "sequence", "asset_name",
-                    "amount_min", "amount_max", "amount_raw", "owner"):
+                    "amount_min", "amount_max", "amount_raw", "owner",
+                    "asset_type_code", "disclosure_lag_days"):
             assert key in first
         assert first["politician_id"] in {ADERHOLT_ID, PELOSI_ID}
         assert first["politician_name"] in {"Robert Aderholt", "Nancy Pelosi"}
@@ -232,6 +233,50 @@ class TestTransactions:
         assert first["verified_transaction_date"] is None
         assert first["verification_method"] is None
         assert first["verification_source_doc_exists"] is False
+
+    def test_disclosure_lag_calculation_and_missing_filing_date(self, api_client):
+        import psycopg
+
+        # The seeded 20032062 filing has no filing date.
+        initial = api_client.get(
+            "/transactions", params={"ticker": "GSK"}
+        ).json()["items"]
+        assert initial[0]["disclosure_lag_days"] is None
+
+        with psycopg.connect(api_client.app.state.database_url, autocommit=True) as conn:
+            conn.execute(
+                "UPDATE filings SET filing_date = '2025-07-28' "
+                "WHERE doc_id = '20032062'"
+            )
+        same_day_gsk = api_client.get(
+            "/transactions", params={"ticker": "GSK"}
+        ).json()["items"][0]
+        same_day_aapl = api_client.get(
+            "/transactions", params={"ticker": "AAPL"}
+        ).json()["items"][0]
+        assert same_day_gsk["disclosure_lag_days"] == 0
+        assert same_day_aapl["disclosure_lag_days"] == 8
+
+        with psycopg.connect(api_client.app.state.database_url, autocommit=True) as conn:
+            conn.execute(
+                "UPDATE filings SET filing_date = '2025-08-31' "
+                "WHERE doc_id = '20032062'"
+            )
+        multi_day_gsk = api_client.get(
+            "/transactions", params={"ticker": "GSK"}
+        ).json()["items"][0]
+        multi_day_aapl = api_client.get(
+            "/transactions", params={"ticker": "AAPL"}
+        ).json()["items"][0]
+        assert multi_day_gsk["disclosure_lag_days"] == 34
+        assert multi_day_aapl["disclosure_lag_days"] == 42
+
+    def test_asset_type_field_and_existing_filter(self, api_client):
+        body = api_client.get(
+            "/transactions", params={"asset_type_code": "ST"}
+        ).json()
+        assert body["pagination"]["total"] == 6
+        assert all(item["asset_type_code"] == "ST" for item in body["items"])
 
     def test_quality_flags_exposed(self, api_client):
         resp = api_client.get("/transactions", params={"doc_id": "20032062"})
