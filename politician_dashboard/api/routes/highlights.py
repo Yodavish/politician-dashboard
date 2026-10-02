@@ -18,10 +18,21 @@ Conn = Annotated[object, Depends(connection_dependency)]
 @router.get("", response_model=dict)
 def highlights_list(conn: Conn):
     """Return newest clusters and top disclosed purchase/sale by amount floor."""
-    cluster_rows = queries.list_recent_cluster_highlights(conn)
-    transaction_rows = queries.list_largest_disclosed_transactions(conn)
+    now = datetime.now(timezone.utc)
+    as_of_date = now.date()
+    cutoff_date = queries.six_month_cutoff(as_of_date)
+    cluster_rows = queries.list_recent_cluster_highlights(
+        conn, cutoff_date=cutoff_date, as_of_date=as_of_date
+    )
+    transaction_rows = queries.list_largest_disclosed_transactions(
+        conn, cutoff_date=cutoff_date, as_of_date=as_of_date
+    )
     return {
-        "generated_at": datetime.now(timezone.utc),
+        "generated_at": now,
+        "activity_window": {
+            "start_date": cutoff_date,
+            "end_date": as_of_date,
+        },
         "recent_cluster_activity": [
             serializers.cluster_highlight_dict(row) for row in cluster_rows
         ],

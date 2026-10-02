@@ -278,6 +278,28 @@ class TestTransactions:
         assert body["pagination"]["total"] == 6
         assert all(item["asset_type_code"] == "ST" for item in body["items"])
 
+    def test_negative_disclosure_lag_is_preserved(self, api_client):
+        import psycopg
+
+        # The official 20033889 source and parser regression tests preserve
+        # 2026-12-26; this pins the serializer's signed date difference too.
+        with psycopg.connect(api_client.app.state.database_url, autocommit=True) as conn:
+            conn.execute(
+                "UPDATE filings SET filing_date = '2026-02-09' "
+                "WHERE doc_id = '20032062'"
+            )
+            conn.execute(
+                "UPDATE transactions SET txn_date = '2026-12-26', "
+                "notification_date = '2026-01-21' "
+                "WHERE filing_id = (SELECT id FROM filings "
+                "WHERE doc_id = '20032062') AND ticker = 'GSK'"
+            )
+
+        transaction = api_client.get(
+            "/transactions", params={"ticker": "GSK"}
+        ).json()["items"][0]
+        assert transaction["disclosure_lag_days"] == -320
+
     def test_quality_flags_exposed(self, api_client):
         resp = api_client.get("/transactions", params={"doc_id": "20032062"})
         assert resp.status_code == 200

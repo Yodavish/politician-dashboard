@@ -67,6 +67,8 @@ def transaction_dict(row) -> dict:
         "asset_type_code": asset_type_code,
         "txn_type": txn_type,
         "txn_date": txn_date,
+        # Keep negative values when the source reports a transaction after
+        # its filing date; the date-quality flags explain the anomaly.
         "disclosure_lag_days": (
             None
             if filing_date is None or txn_date is None

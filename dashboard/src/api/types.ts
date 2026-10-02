@@ -212,6 +212,10 @@ export interface LargestTransactionHighlight {
 
 export interface Highlights {
   generated_at: string;
+  activity_window: {
+    start_date: string;
+    end_date: string;
+  };
   recent_cluster_activity: ClusterHighlight[];
   largest_disclosed_transactions: LargestTransactionHighlight[];
 }

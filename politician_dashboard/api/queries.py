@@ -6,6 +6,9 @@ Column names are aliased to snake_case for direct use by the schema mapping.
 
 from __future__ import annotations
 
+import calendar
+from datetime import date
+
 from politician_dashboard.api import sql as _sql
 from politician_dashboard.api.signal_rules import (
     BUY_CLUSTER_GAP_DAYS,
@@ -542,8 +545,23 @@ def get_cluster(conn, *, signal_type: str, ticker: str, start_date: str):
     return summary, transactions
 
 
-def list_recent_cluster_highlights(conn):
-    """Compute the newest qualifying buy and sell clusters in one pass."""
+def six_month_cutoff(as_of_date: date) -> date:
+    """Return the date six calendar months before ``as_of_date``.
+
+    If the target month does not contain the same day (for example, October
+    31 to April), clamp to the last day of that month.
+    """
+    target_month_index = as_of_date.year * 12 + as_of_date.month - 1 - 6
+    year, zero_based_month = divmod(target_month_index, 12)
+    month = zero_based_month + 1
+    day = min(as_of_date.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def list_recent_cluster_highlights(
+    conn, *, cutoff_date: date, as_of_date: date,
+):
+    """Compute existing clusters once, then retain those inside the window."""
     rows = conn.execute(
         f"""
         WITH events AS (
@@ -558,7 +576,7 @@ def list_recent_cluster_highlights(conn):
             FROM transactions t JOIN filings f ON f.id = t.filing_id
             WHERE t.txn_type IN ('P', 'S')
               AND t.ticker ~ %s
-              AND t.txn_date <= CURRENT_DATE
+              AND t.txn_date <= %s
         ), ordered AS (
             SELECT events.*,
                    lag(txn_date) OVER (
@@ -583,27 +601,36 @@ def list_recent_cluster_highlights(conn):
             GROUP BY txn_type, ticker, burst_id
             HAVING count(DISTINCT person_key) >= %s
                AND max(txn_date) - min(txn_date) <= %s
+        ), in_window AS (
+            -- Cluster rules are computed over the complete history above.
+            -- Only after that computation do we select clusters whose full
+            -- transaction-date span falls inside the homepage window.
+            SELECT * FROM clusters
+            WHERE start_date >= %s AND end_date <= %s
         ), ranked AS (
-            SELECT clusters.*,
+            SELECT in_window.*,
                    row_number() OVER (
                        PARTITION BY txn_type
                        ORDER BY end_date DESC, start_date DESC, ticker
                    ) AS type_rank
-            FROM clusters
+            FROM in_window
         )
         SELECT txn_type, ticker, start_date, end_date,
                transaction_count, politician_count
         FROM ranked WHERE type_rank = 1
         ORDER BY txn_type
         """,
-        (BUY_CLUSTER_TICKER_PATTERN, BUY_CLUSTER_GAP_DAYS,
-         BUY_CLUSTER_MIN_POLITICIANS, BUY_CLUSTER_MAX_SPAN_DAYS),
+        (BUY_CLUSTER_TICKER_PATTERN, as_of_date, BUY_CLUSTER_GAP_DAYS,
+         BUY_CLUSTER_MIN_POLITICIANS, BUY_CLUSTER_MAX_SPAN_DAYS,
+         cutoff_date, as_of_date),
     ).fetchall()
     return rows
 
 
-def list_largest_disclosed_transactions(conn):
-    """Return one purchase and sale ranked by disclosed lower bound."""
+def list_largest_disclosed_transactions(
+    conn, *, cutoff_date: date, as_of_date: date,
+):
+    """Return one in-window purchase and sale ranked by disclosed lower bound."""
     return conn.execute(
         """
         WITH ranked AS (
@@ -616,11 +643,13 @@ def list_largest_disclosed_transactions(conn):
                    ) AS type_rank
             FROM transactions t JOIN filings f ON f.id = t.filing_id
             WHERE t.txn_type IN ('P', 'S')
-              AND t.txn_date <= CURRENT_DATE
+              AND t.txn_date >= %s
+              AND t.txn_date <= %s
         )
         SELECT id, filing_id, doc_id, first_name, last_name, state_district,
                ticker, txn_type, txn_date, amount_min, amount_max, amount_raw
         FROM ranked WHERE type_rank = 1
         ORDER BY txn_type
-        """
+        """,
+        (cutoff_date, as_of_date),
     ).fetchall()

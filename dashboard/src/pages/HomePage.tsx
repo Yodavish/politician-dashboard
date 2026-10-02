@@ -45,7 +45,8 @@ export default function HomePage() {
           What’s Unusual Right Now?
         </h1>
         <p className="text-muted-foreground text-sm">
-          Recent disclosure activity surfaced by clear, reviewable rules.
+          Recent disclosure activity surfaced by clear, reviewable rules. Trade
+          dates: {highlights.activity_window.start_date} – {highlights.activity_window.end_date}.
         </p>
       </header>
 
@@ -59,7 +60,7 @@ export default function HomePage() {
           </p>
         </div>
         {highlights.recent_cluster_activity.length === 0 ? (
-          <Empty message="No qualifying clusters are available." />
+          <Empty message="No qualifying clusters are available in this six-month window." />
         ) : (
           <div className="divide-y rounded-lg border bg-card">
             {highlights.recent_cluster_activity.map((item) => (
@@ -97,7 +98,7 @@ export default function HomePage() {
           </p>
         </div>
         {highlights.largest_disclosed_transactions.length === 0 ? (
-          <Empty message="No eligible purchase or sale disclosures are available." />
+          <Empty message="No eligible purchase or sale disclosures are available in this six-month window." />
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {highlights.largest_disclosed_transactions.map((item) => (

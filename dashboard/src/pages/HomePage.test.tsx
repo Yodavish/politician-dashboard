@@ -12,6 +12,10 @@ vi.mock("@/api/client", () => ({ fetchHighlights }));
 
 const highlights: Highlights = {
   generated_at: "2026-10-01T12:00:00Z",
+  activity_window: {
+    start_date: "2026-04-01",
+    end_date: "2026-10-01",
+  },
   recent_cluster_activity: [
     {
       type: "buy_cluster",
@@ -62,6 +66,7 @@ describe("HomePage", () => {
     );
 
     expect(await screen.findByText("Recent Cluster Activity")).toBeInTheDocument();
+    expect(screen.getByText(/Trade dates: 2026-04-01 – 2026-10-01/)).toBeInTheDocument();
     expect(screen.getByText("Largest Disclosed Transactions")).toBeInTheDocument();
     expect(screen.getByText("NVDA — 8 transactions involving 6 members")).toBeInTheDocument();
     expect(screen.getByText(/Over \$50,000,000/)).toBeInTheDocument();

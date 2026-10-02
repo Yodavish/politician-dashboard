@@ -30,9 +30,9 @@ Pelosi = PEOPLE[1][3]
 Johnson = PEOPLE[2][3]
 Greene = PEOPLE[3][3]
 
-# Anchored well in the past so the fixtures never drift across a date
-# boundary as the suite ages.
-BASE = date(2025, 1, 6)
+# Recent enough for homepage recency tests while keeping dates relative to the
+# test run so the fixtures remain valid as the suite ages.
+BASE = date.today() - timedelta(days=60)
 FUTURE = date.today() + timedelta(days=30)
 
 
@@ -697,6 +697,8 @@ class TestHomepageHighlights:
         assert response.status_code == 200
         body = response.json()
         assert body["generated_at"]
+        cutoff = date.fromisoformat(body["activity_window"]["start_date"])
+        window_end = date.fromisoformat(body["activity_window"]["end_date"])
         clusters = body["recent_cluster_activity"]
         assert len(clusters) == 2
         assert {item["type"] for item in clusters} == {
@@ -710,6 +712,8 @@ class TestHomepageHighlights:
             assert detail.json()["type"] == item["type"]
             assert detail.json()["id"] == item["signal_id"]
             assert item["date_start"] <= item["date_end"]
+            assert date.fromisoformat(item["date_start"]) >= cutoff
+            assert date.fromisoformat(item["date_end"]) <= window_end
             assert "disclosed" in item["reason"]
 
     def test_largest_purchase_preserves_open_ended_amount(self, signal_client):
@@ -719,11 +723,14 @@ class TestHomepageHighlights:
             for item in body["largest_disclosed_transactions"]
         }
         purchase = transactions["largest_disclosed_purchase"]
+        cutoff = date.fromisoformat(body["activity_window"]["start_date"])
+        window_end = date.fromisoformat(body["activity_window"]["end_date"])
         assert purchase["amount_min"] == 50_000_000
         assert purchase["amount_max"] is None
         assert purchase["amount_raw"] == "Over $50,000,000"
         assert "minimum amount" in purchase["title"]
         assert "ranges overlap" in purchase["reason"]
+        assert cutoff <= date.fromisoformat(purchase["txn_date"]) <= window_end
         assert signal_client.get(purchase["detail_url"]).status_code == 200
 
     def test_largest_transaction_selection_has_no_duplicate_ids(self, signal_client):
@@ -732,3 +739,18 @@ class TestHomepageHighlights:
         ]
         assert len(items) == 2
         assert len({item["transaction_id"] for item in items}) == len(items)
+
+    def test_old_clusters_and_transactions_are_not_used_as_fallback(
+        self, signal_client,
+    ):
+        with psycopg.connect(
+            signal_client.app.state.database_url, autocommit=True
+        ) as conn:
+            conn.execute(
+                "UPDATE transactions "
+                "SET txn_date = (txn_date - INTERVAL '1 year')::date"
+            )
+
+        body = signal_client.get("/highlights").json()
+        assert body["recent_cluster_activity"] == []
+        assert body["largest_disclosed_transactions"] == []
