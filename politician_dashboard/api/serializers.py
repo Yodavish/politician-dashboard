@@ -7,7 +7,11 @@ by the Pydantic response models. ``raw_pdf`` is never selected or serialized.
 from __future__ import annotations
 
 from politician_dashboard.api.politicians import politician_id
-from politician_dashboard.api.signal_rules import SIGNAL_RULES
+from politician_dashboard.api.signal_rules import (
+    BUY_CLUSTER,
+    SELL_CLUSTER,
+    SIGNAL_RULES,
+)
 
 
 def filing_dict(row) -> dict:
@@ -190,3 +194,69 @@ def cluster_detail_dict(summary_row, transaction_rows, signal_type: str) -> dict
         signal_transaction_dict(row) for row in transaction_rows
     ]
     return result
+
+
+def cluster_highlight_dict(row) -> dict:
+    txn_type, ticker, start_date, end_date, transaction_count, politician_count = row
+    signal_type = BUY_CLUSTER if txn_type == "P" else SELL_CLUSTER
+    rule = SIGNAL_RULES[signal_type]["rule"]
+    signal_id = (
+        SIGNAL_RULES[signal_type]["id_prefix"]
+        + ticker.lower()
+        + "_"
+        + start_date.isoformat()
+    )
+    noun = "purchases" if txn_type == "P" else "sales"
+    return {
+        "type": signal_type,
+        "title": rule["label"],
+        "summary": (
+            f"{ticker} — {transaction_count} transactions involving "
+            f"{politician_count} members"
+        ),
+        "reason": (
+            f"At least {rule['min_politicians']} politicians disclosed {noun} "
+            f"of the same ticker, with no more than {rule['max_gap_days']} days "
+            f"between consecutive transactions and a maximum "
+            f"{rule['max_span_days']}-day span."
+        ),
+        "date_start": start_date,
+        "date_end": end_date,
+        "signal_id": signal_id,
+        "ticker": ticker,
+        "transaction_count": int(transaction_count),
+        "politician_count": int(politician_count),
+        "detail_url": f"/signals/{signal_id}",
+    }
+
+
+def largest_transaction_highlight_dict(row) -> dict:
+    (
+        transaction_id, filing_id, doc_id, first_name, last_name, state_district,
+        ticker, txn_type, txn_date, amount_min, amount_max, amount_raw,
+    ) = row
+    purchase = txn_type == "P"
+    label = "purchase" if purchase else "sale"
+    return {
+        "type": (
+            "largest_disclosed_purchase"
+            if purchase
+            else "largest_disclosed_sale"
+        ),
+        "title": f"Largest Disclosed {label.title()} (by minimum amount)",
+        "ticker": ticker,
+        "politician_id": politician_id(state_district, first_name, last_name),
+        "politician_name": f"{first_name} {last_name}".strip(),
+        "txn_date": txn_date,
+        "amount_min": float(amount_min),
+        "amount_max": None if amount_max is None else float(amount_max),
+        "amount_raw": amount_raw,
+        "reason": (
+            "Ranked by disclosed minimum amount. This is not necessarily the "
+            "definitively largest transaction when disclosed ranges overlap."
+        ),
+        "transaction_id": int(transaction_id),
+        "filing_id": int(filing_id),
+        "doc_id": doc_id,
+        "detail_url": f"/filings/{doc_id}",
+    }

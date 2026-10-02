@@ -12,6 +12,7 @@ from politician_dashboard.api import db
 from politician_dashboard.api.errors import APIError
 from politician_dashboard.api.routes import (
     filings,
+    highlights,
     health,
     politicians,
     signals,
@@ -43,6 +44,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.include_router(filings.router)
     app.include_router(transactions.router)
     app.include_router(signals.router)
+    app.include_router(highlights.router)
 
     @app.exception_handler(APIError)
     async def api_error_handler(_request: Request, exc: APIError):

@@ -689,3 +689,46 @@ class TestSignalPaginationAndSorting:
         assert signal_client.get("/signals", params={"limit": 0}).status_code == 422
         assert signal_client.get("/signals", params={"limit": 101}).status_code == 422
         assert signal_client.get("/signals", params={"offset": -1}).status_code == 422
+
+
+class TestHomepageHighlights:
+    def test_returns_one_recent_cluster_of_each_existing_type(self, signal_client):
+        response = signal_client.get("/highlights")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["generated_at"]
+        clusters = body["recent_cluster_activity"]
+        assert len(clusters) == 2
+        assert {item["type"] for item in clusters} == {
+            "buy_cluster", "sell_cluster"
+        }
+        assert {item["ticker"] for item in clusters} == {"GAP7", "SGAP7"}
+        assert len({item["signal_id"] for item in clusters}) == 2
+        for item in clusters:
+            detail = signal_client.get(item["detail_url"])
+            assert detail.status_code == 200
+            assert detail.json()["type"] == item["type"]
+            assert detail.json()["id"] == item["signal_id"]
+            assert item["date_start"] <= item["date_end"]
+            assert "disclosed" in item["reason"]
+
+    def test_largest_purchase_preserves_open_ended_amount(self, signal_client):
+        body = signal_client.get("/highlights").json()
+        transactions = {
+            item["type"]: item
+            for item in body["largest_disclosed_transactions"]
+        }
+        purchase = transactions["largest_disclosed_purchase"]
+        assert purchase["amount_min"] == 50_000_000
+        assert purchase["amount_max"] is None
+        assert purchase["amount_raw"] == "Over $50,000,000"
+        assert "minimum amount" in purchase["title"]
+        assert "ranges overlap" in purchase["reason"]
+        assert signal_client.get(purchase["detail_url"]).status_code == 200
+
+    def test_largest_transaction_selection_has_no_duplicate_ids(self, signal_client):
+        items = signal_client.get("/highlights").json()[
+            "largest_disclosed_transactions"
+        ]
+        assert len(items) == 2
+        assert len({item["transaction_id"] for item in items}) == len(items)

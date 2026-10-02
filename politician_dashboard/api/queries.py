@@ -8,6 +8,10 @@ from __future__ import annotations
 
 from politician_dashboard.api import sql as _sql
 from politician_dashboard.api.signal_rules import (
+    BUY_CLUSTER_GAP_DAYS,
+    BUY_CLUSTER_MAX_SPAN_DAYS,
+    BUY_CLUSTER_MIN_POLITICIANS,
+    BUY_CLUSTER_TICKER_PATTERN,
     SIGNAL_RULES,
 )
 
@@ -536,3 +540,87 @@ def get_cluster(conn, *, signal_type: str, ticker: str, start_date: str):
         params,
     ).fetchall()
     return summary, transactions
+
+
+def list_recent_cluster_highlights(conn):
+    """Compute the newest qualifying buy and sell clusters in one pass."""
+    rows = conn.execute(
+        f"""
+        WITH events AS (
+            SELECT t.id, t.txn_type, t.ticker, t.txn_date,
+                   f.first_name, f.last_name, f.state_district,
+                   regexp_replace(lower(btrim(f.state_district)),
+                                  '[\\s_]+', '_', 'g') || '_' ||
+                   regexp_replace(lower(btrim(f.first_name)),
+                                  '[\\s_]+', '_', 'g') || '_' ||
+                   regexp_replace(lower(btrim(f.last_name)),
+                                  '[\\s_]+', '_', 'g') AS person_key
+            FROM transactions t JOIN filings f ON f.id = t.filing_id
+            WHERE t.txn_type IN ('P', 'S')
+              AND t.ticker ~ %s
+              AND t.txn_date <= CURRENT_DATE
+        ), ordered AS (
+            SELECT events.*,
+                   lag(txn_date) OVER (
+                       PARTITION BY txn_type, ticker ORDER BY txn_date, id
+                   ) AS prev_date
+            FROM events
+        ), bursts AS (
+            SELECT ordered.*,
+                   sum(CASE WHEN prev_date IS NULL
+                                  OR txn_date - prev_date > %s
+                            THEN 1 ELSE 0 END) OVER (
+                       PARTITION BY txn_type, ticker
+                       ORDER BY txn_date, id
+                   ) AS burst_id
+            FROM ordered
+        ), clusters AS (
+            SELECT txn_type, ticker, burst_id,
+                   min(txn_date) AS start_date, max(txn_date) AS end_date,
+                   count(*)::int AS transaction_count,
+                   count(DISTINCT person_key)::int AS politician_count
+            FROM bursts
+            GROUP BY txn_type, ticker, burst_id
+            HAVING count(DISTINCT person_key) >= %s
+               AND max(txn_date) - min(txn_date) <= %s
+        ), ranked AS (
+            SELECT clusters.*,
+                   row_number() OVER (
+                       PARTITION BY txn_type
+                       ORDER BY end_date DESC, start_date DESC, ticker
+                   ) AS type_rank
+            FROM clusters
+        )
+        SELECT txn_type, ticker, start_date, end_date,
+               transaction_count, politician_count
+        FROM ranked WHERE type_rank = 1
+        ORDER BY txn_type
+        """,
+        (BUY_CLUSTER_TICKER_PATTERN, BUY_CLUSTER_GAP_DAYS,
+         BUY_CLUSTER_MIN_POLITICIANS, BUY_CLUSTER_MAX_SPAN_DAYS),
+    ).fetchall()
+    return rows
+
+
+def list_largest_disclosed_transactions(conn):
+    """Return one purchase and sale ranked by disclosed lower bound."""
+    return conn.execute(
+        """
+        WITH ranked AS (
+            SELECT t.id, t.filing_id, f.doc_id, f.first_name, f.last_name,
+                   f.state_district, t.ticker, t.txn_type, t.txn_date,
+                   t.amount_min, t.amount_max, t.amount_raw,
+                   row_number() OVER (
+                       PARTITION BY t.txn_type
+                       ORDER BY t.amount_min DESC, t.txn_date DESC, t.id
+                   ) AS type_rank
+            FROM transactions t JOIN filings f ON f.id = t.filing_id
+            WHERE t.txn_type IN ('P', 'S')
+              AND t.txn_date <= CURRENT_DATE
+        )
+        SELECT id, filing_id, doc_id, first_name, last_name, state_district,
+               ticker, txn_type, txn_date, amount_min, amount_max, amount_raw
+        FROM ranked WHERE type_rank = 1
+        ORDER BY txn_type
+        """
+    ).fetchall()
