@@ -31,3 +31,5 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+opencode.json
