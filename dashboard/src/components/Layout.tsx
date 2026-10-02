@@ -2,6 +2,7 @@ import { Link, NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
+  { to: "/", label: "Home" },
   { to: "/transactions", label: "Recent Trades" },
   { to: "/politicians", label: "Politicians" },
   { to: "/signals", label: "Signals" },
@@ -12,7 +13,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="bg-background text-foreground flex min-h-screen flex-col">
       <header className="bg-primary text-primary-foreground sticky top-0 z-10">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link to="/transactions" className="text-base font-bold">
+          <Link to="/" className="text-base font-bold">
             Politician Dashboard
           </Link>
           <nav className="flex items-center gap-1">
@@ -20,6 +21,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === "/"}
                 className={({ isActive }) =>
                   cn(
                     "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",

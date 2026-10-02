@@ -3,6 +3,7 @@ import type {
   SignalDetail,
   FilingDetail,
   FilingSummary,
+  Highlights,
   Paginated,
   Politician,
   Transaction,
@@ -84,6 +85,10 @@ export function fetchSignals(
 ): Promise<Paginated<Signal>> {
   const qs = params ? "?" + toQuery(params) : "";
   return fetchJson<Paginated<Signal>>(`${BASE}/signals${qs}`);
+}
+
+export function fetchHighlights(): Promise<Highlights> {
+  return fetchJson<Highlights>(`${BASE}/highlights`);
 }
 
 export function fetchSignal(id: string): Promise<SignalDetail> {

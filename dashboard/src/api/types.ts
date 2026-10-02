@@ -177,3 +177,40 @@ export interface Signal {
 export interface SignalDetail extends Signal {
   transactions: SignalTransaction[];
 }
+
+export interface ClusterHighlight {
+  type: SignalType;
+  title: string;
+  summary: string;
+  reason: string;
+  date_start: string;
+  date_end: string;
+  signal_id: string;
+  ticker: string;
+  transaction_count: number;
+  politician_count: number;
+  detail_url: string;
+}
+
+export interface LargestTransactionHighlight {
+  type: "largest_disclosed_purchase" | "largest_disclosed_sale";
+  title: string;
+  ticker: string | null;
+  politician_id: string;
+  politician_name: string;
+  txn_date: string;
+  amount_min: number;
+  amount_max: number | null;
+  amount_raw: string;
+  reason: string;
+  transaction_id: number;
+  filing_id: number;
+  doc_id: string;
+  detail_url: string;
+}
+
+export interface Highlights {
+  generated_at: string;
+  recent_cluster_activity: ClusterHighlight[];
+  largest_disclosed_transactions: LargestTransactionHighlight[];
+}
