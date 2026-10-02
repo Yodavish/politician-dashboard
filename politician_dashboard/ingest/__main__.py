@@ -49,6 +49,21 @@ from politician_dashboard.ingest.runner import (
 EARLIEST_YEAR = 2011
 
 
+def parse_iso_date(value: str) -> date:
+    """Parse the CLI's strict YYYY-MM-DD date format."""
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"invalid date {value!r}; expected YYYY-MM-DD"
+        ) from exc
+    if parsed.isoformat() != value:
+        raise argparse.ArgumentTypeError(
+            f"invalid date {value!r}; expected YYYY-MM-DD"
+        )
+    return parsed
+
+
 def resolve_years(
     year: int | None,
     backfill: bool,
@@ -95,6 +110,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=EARLIEST_YEAR,
         help=f"Starting year for --backfill (default {EARLIEST_YEAR}).",
+    )
+    parser.add_argument(
+        "--since-date",
+        type=parse_iso_date,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Minimum filing date for incremental/date-filtered ingestion (inclusive).",
     )
     parser.add_argument(
         "--recompute-flags",
@@ -378,10 +400,11 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
-        if args.year is not None or args.backfill:
+        if args.year is not None or args.backfill or args.since_date is not None:
             print(
                 "error: --recompute-flags cannot be combined with "
-                "--year or --backfill (it covers all stored transactions)",
+                "--year, --backfill, or --since-date "
+                "(it covers all stored transactions)",
                 file=sys.stderr,
             )
             return 2
@@ -406,10 +429,10 @@ def main(argv: list[str] | None = None) -> int:
         if sum(curation_actions) != 1:
             print("error: select exactly one curation action", file=sys.stderr)
             return 2
-        if args.year is not None or args.backfill:
+        if args.year is not None or args.backfill or args.since_date is not None:
             print(
                 "error: curation actions cannot be combined with "
-                "--year or --backfill",
+                "--year, --backfill, or --since-date",
                 file=sys.stderr,
             )
             return 2
@@ -428,9 +451,13 @@ def main(argv: list[str] | None = None) -> int:
         for year in years:
             print(f"Ingesting {args.source} {year}...")
             if args.source == "senate":
-                result = run_senate_ingestion(year=year, conn=conn)
+                result = run_senate_ingestion(
+                    year=year, conn=conn, since_date=args.since_date
+                )
             else:
-                result = run_ingestion(year=year, conn=conn)
+                result = run_ingestion(
+                    year=year, conn=conn, since_date=args.since_date
+                )
             print(_format_result(result))
 
     return 0

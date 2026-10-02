@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Callable
 
 import psycopg
@@ -324,6 +324,7 @@ def _run_year(
     create_run: Callable[..., int],
     finish_run: Callable[..., None],
     started_at: datetime,
+    since_date: date | None = None,
 ) -> IngestionResult:
     """Shared per-source engine for the source -> store pipeline."""
     result = IngestionResult(year=year)
@@ -340,6 +341,14 @@ def _run_year(
     result.filings_indexed = len(filings)
 
     for filing in filings:
+        # Source indexes are currently year-wide. Apply this filter before
+        # idempotency lookups and document acquisition; transaction dates are
+        # unrelated to when a filing became available.
+        if since_date is not None and (
+            filing.filing_date is None or filing.filing_date < since_date
+        ):
+            continue
+
         if acquirer.classify(filing.doc_id) == "scanned":
             result.scanned_skipped += 1
             continue
@@ -422,6 +431,7 @@ def run_ingestion(
     create_run: Callable[..., int] | None = None,
     finish_run: Callable[..., None] | None = None,
     now: datetime | None = None,
+    since_date: date | None = None,
 ) -> IngestionResult:
     """Ingest a single calendar year of House disclosures into the database.
 
@@ -440,6 +450,7 @@ def run_ingestion(
         create_run=create_run or _create_run,
         finish_run=finish_run or _finish_run,
         started_at=now or datetime.now(timezone.utc),
+        since_date=since_date,
     )
 
 
@@ -454,6 +465,7 @@ def run_senate_ingestion(
     create_run: Callable[..., int] | None = None,
     finish_run: Callable[..., None] | None = None,
     now: datetime | None = None,
+    since_date: date | None = None,
 ) -> IngestionResult:
     """Ingest a single calendar year of Senate eFD disclosures.
 
@@ -473,4 +485,5 @@ def run_senate_ingestion(
         create_run=create_run or _create_run,
         finish_run=finish_run or _finish_run,
         started_at=now or datetime.now(timezone.utc),
+        since_date=since_date,
     )

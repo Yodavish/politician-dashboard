@@ -8,6 +8,7 @@ a live PostgreSQL server or network access.
 from __future__ import annotations
 
 import itertools
+from dataclasses import replace
 from datetime import date, datetime, timezone
 
 import pytest
@@ -25,7 +26,10 @@ from politician_dashboard.ingest.runner import (
     _to_transactions,
     run_ingestion,
 )
-from politician_dashboard.ingest.__main__ import resolve_years
+from politician_dashboard.ingest.__main__ import (
+    build_parser,
+    resolve_years,
+)
 from politician_dashboard.ingest.sources.house_clerk import classify_doc_id
 from politician_dashboard.ingest.store import StoreError
 
@@ -144,7 +148,10 @@ class _Harness:
         self.finished.append((run_id, status, result))
 
     def execute(
-        self, year: int = 2025, now: datetime | None = None
+        self,
+        year: int = 2025,
+        now: datetime | None = None,
+        since_date: date | None = None,
     ) -> IngestionResult:
         self.result = run_ingestion(
             year=year,
@@ -157,6 +164,7 @@ class _Harness:
             create_run=self.create_run,
             finish_run=self.finish_run,
             now=now or datetime(2025, 9, 1, tzinfo=timezone.utc),
+            since_date=since_date,
         )
         return self.result
 
@@ -166,6 +174,47 @@ def _harness(filings: list[Filing] | None = None) -> _Harness:
 
 
 class TestRunIngestion:
+    def test_since_date_includes_boundary_and_later_filings_only(self) -> None:
+        threshold = date(2025, 9, 10)
+        filings = [
+            _filing("20032061"),
+            _filing("20032062"),
+            _filing("20032063"),
+        ]
+        filings[0] = replace(filings[0], filing_date=date(2025, 9, 9))
+        filings[2] = replace(filings[2], filing_date=date(2025, 9, 11))
+        h = _harness(filings)
+        result = h.execute(since_date=threshold)
+
+        assert result.filings_indexed == 3
+        assert h.downloaded == [
+            "https://example.invalid/2025/20032062.pdf",
+            "https://example.invalid/2025/20032063.pdf",
+        ]
+
+    def test_since_date_excludes_missing_filing_date_before_any_work(self) -> None:
+        filing = replace(_filing("20032062"), filing_date=None)
+        h = _harness([filing])
+        h.execute(since_date=date(2025, 1, 1))
+        assert h.exists_checks == []
+        assert h.downloaded == []
+
+    def test_existing_recent_doc_id_is_skipped_before_download(self) -> None:
+        h = _harness([_filing("20032062")])
+        h._filing_exists_impl = lambda conn, doc_id: True
+        result = h.execute(since_date=date(2025, 9, 10))
+        assert result.filings_skipped == 1
+        assert h.exists_checks == ["20032062"]
+        assert h.downloaded == []
+        assert h.stored == []
+
+    def test_recent_amendment_is_ingested_as_its_own_filing(self) -> None:
+        amendment = replace(_filing("20034452"), filing_date=date(2025, 9, 11))
+        h = _harness([amendment])
+        result = h.execute(since_date=date(2025, 9, 10))
+        assert result.filings_new == 1
+        assert [entry["filing"].doc_id for entry in h.stored] == ["20034452"]
+
     def test_successful_run_stores_filing_and_transactions(self) -> None:
         h = _harness()
         result = h.execute()
@@ -467,3 +516,36 @@ class TestResolveYears:
     def test_backfill_since_after_current_raises(self) -> None:
         with pytest.raises(ValueError):
             resolve_years(None, True, 2026, current_year=2025)
+
+    def test_since_date_alone_uses_default_current_year(self) -> None:
+        args = build_parser().parse_args(["--since-date", "2025-09-10"])
+        assert args.since_date == date(2025, 9, 10)
+        assert resolve_years(
+            args.year, args.backfill, args.since, current_year=2025
+        ) == [2025]
+
+    def test_year_and_since_date_keep_explicit_year(self) -> None:
+        args = build_parser().parse_args(
+            ["--year", "2024", "--since-date", "2025-09-10"]
+        )
+        assert args.since_date == date(2025, 9, 10)
+        assert resolve_years(
+            args.year, args.backfill, args.since, current_year=2025
+        ) == [2024]
+
+    def test_backfill_since_year_semantics_are_unchanged_with_date(self) -> None:
+        args = build_parser().parse_args(
+            ["--backfill", "--since", "2023", "--since-date", "2025-09-10"]
+        )
+        assert resolve_years(
+            args.year, args.backfill, args.since, current_year=2025
+        ) == [2023, 2024, 2025]
+
+    def test_since_date_requires_strict_iso_date(self) -> None:
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["--since-date", "2025-9-10"])
+
+    def test_since_date_rejects_impossible_date_with_clear_error(self, capsys) -> None:
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["--since-date", "2025-02-30"])
+        assert "expected YYYY-MM-DD" in capsys.readouterr().err
