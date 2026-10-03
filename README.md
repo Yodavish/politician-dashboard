@@ -65,6 +65,14 @@ uv run --env-file .env uvicorn politician_dashboard.api:create_app \
 
 Health endpoint: `http://localhost:8000/health`.
 
+The API records HTTP server spans and request-duration metrics. PostgreSQL
+operations are traced through psycopg instrumentation. Telemetry is not sent
+anywhere unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set; the endpoint and optional
+headers/protocol use the standard `OTEL_EXPORTER_OTLP_*` environment variables.
+For local development, leave these variables unset and the API starts without
+an exporter or telemetry backend. To export traces and metrics, set the endpoint
+and, if needed, `OTEL_EXPORTER_OTLP_PROTOCOL` to `grpc` or `http/protobuf`.
+
 ### Run the dashboard
 
 ```bash

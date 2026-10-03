@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from politician_dashboard.api import db
 from politician_dashboard.api.errors import APIError
@@ -19,6 +21,7 @@ from politician_dashboard.api.routes import (
     transactions,
 )
 from politician_dashboard.config import get_database_url
+from politician_dashboard.observability import instrument_app
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
@@ -38,6 +41,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     app = FastAPI(title="Politician Dashboard API", version="0.1.0", lifespan=lifespan)
     app.state.database_url = url
+    instrument_app(app)
 
     app.include_router(health.router)
     app.include_router(politicians.router)
@@ -61,11 +65,15 @@ def create_app(database_url: str | None = None) -> FastAPI:
         )
 
     @app.exception_handler(Exception)
-    async def unexpected_handler(_request: Request, _exc: Exception):
+    async def unexpected_handler(_request: Request, exc: Exception):
         # Never leak internals; log the real error and return a generic message.
         import logging
 
         logging.getLogger(__name__).exception("unhandled API error")
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR))
         return JSONResponse(
             status_code=500,
             content={"detail": "internal server error", "code": "internal_error"},

@@ -9,7 +9,8 @@ __pycache__/
 
 # Environment files
 .env
-.env.*.local
+.env.*
+!.env.example
 
 # Virtual environment
 .venv/
