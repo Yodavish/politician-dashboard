@@ -21,7 +21,7 @@ from politician_dashboard.api.routes import (
     transactions,
 )
 from politician_dashboard.config import get_database_url
-from politician_dashboard.observability import instrument_app
+from politician_dashboard.observability import configure_logging, instrument_app
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
@@ -41,6 +41,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     app = FastAPI(title="Politician Dashboard API", version="0.1.0", lifespan=lifespan)
     app.state.database_url = url
+    configure_logging()
     instrument_app(app)
 
     app.include_router(health.router)

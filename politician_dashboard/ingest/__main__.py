@@ -45,6 +45,7 @@ from politician_dashboard.ingest.runner import (
     run_ingestion,
     run_senate_ingestion,
 )
+from politician_dashboard.observability import configure_logging
 
 EARLIEST_YEAR = 2011
 
@@ -390,6 +391,7 @@ def _run_curation(args, conn) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging()
     args = build_parser().parse_args(argv)
     database_url = args.database_url or get_database_url()
 

@@ -329,6 +329,13 @@ def _run_year(
     """Shared per-source engine for the source -> store pipeline."""
     result = IngestionResult(year=year)
     result.run_id = create_run(conn, year, started_at, acquirer.source_name)
+    run_context = {
+        "ingest_source": acquirer.source_name,
+        "ingest_year": year,
+        "ingest_since_date": since_date.isoformat() if since_date else "",
+        "ingest_run_id": result.run_id,
+    }
+    logger.info("ingestion run started", extra=run_context)
 
     try:
         filings = source.fetch_ptrs(year)
@@ -336,6 +343,15 @@ def _run_year(
         result.status = "failed"
         result.error = f"failed to fetch {year} index: {exc}"
         finish_run(conn, result.run_id, "failed", result)
+        logger.error(
+            "ingestion run failed",
+            extra={
+                **run_context,
+                "ingest_status": "failed",
+                "failure_type": "index",
+                "exception_type": type(exc).__name__,
+            },
+        )
         return result
 
     result.filings_indexed = len(filings)
@@ -364,11 +380,25 @@ def _run_year(
             continue
         except AcquisitionDownloadError as exc:
             result.download_failed += 1
-            logger.warning("download failed for %s: %s", filing.doc_id, exc)
+            logger.warning(
+                "filing download failed",
+                extra={
+                    **run_context,
+                    "failure_type": "download",
+                    "exception_type": type(exc).__name__,
+                },
+            )
             continue
         except AcquisitionParseError as exc:
             result.parse_failed += 1
-            logger.warning("parse failed for %s: %s", filing.doc_id, exc)
+            logger.warning(
+                "filing parse failed",
+                extra={
+                    **run_context,
+                    "failure_type": "parse",
+                    "exception_type": type(exc).__name__,
+                },
+            )
             continue
 
         # Attach derived date-consistency flags (chamber-agnostic): the source
@@ -401,7 +431,14 @@ def _run_year(
         except StoreError as exc:
             result.store_failed += 1
             result.store_failure_details.append(f"{filing.doc_id}: {exc}")
-            logger.warning("store failed for %s: %s", filing.doc_id, exc)
+            logger.warning(
+                "filing store failed",
+                extra={
+                    **run_context,
+                    "failure_type": "store",
+                    "exception_type": type(exc).__name__,
+                },
+            )
             continue
 
         if inserted:
@@ -416,6 +453,21 @@ def _run_year(
         result.status = "success"
 
     finish_run(conn, result.run_id, result.status, result)
+    logger.info(
+        "ingestion run finished",
+        extra={
+            **run_context,
+            "ingest_status": result.status,
+            "filings_indexed": result.filings_indexed,
+            "filings_new": result.filings_new,
+            "filings_skipped": result.filings_skipped,
+            "scanned_skipped": result.scanned_skipped,
+            "download_failed": result.download_failed,
+            "parse_failed": result.parse_failed,
+            "store_failed": result.store_failed,
+            "transactions_stored": result.transactions_stored,
+        },
+    )
     return result
 
 

@@ -174,6 +174,24 @@ def _harness(filings: list[Filing] | None = None) -> _Harness:
 
 
 class TestRunIngestion:
+    def test_run_logs_structured_context_without_exception_details(self, caplog) -> None:
+        caplog.set_level("INFO")
+        h = _harness()
+        h.downloader_impl = RuntimeError("sensitive document contents")
+        result = h.execute(since_date=date(2025, 9, 10))
+
+        started, failure, finished = caplog.records
+        assert started.ingest_source == "house_clerk"
+        assert started.ingest_year == 2025
+        assert started.ingest_since_date == "2025-09-10"
+        assert started.ingest_run_id == 7
+        assert finished.ingest_status == "partial"
+        assert finished.download_failed == 1
+        assert failure.failure_type == "download"
+        assert failure.exception_type == "AcquisitionDownloadError"
+        assert "sensitive document contents" not in caplog.text
+        assert result.status == "partial"
+
     def test_since_date_includes_boundary_and_later_filings_only(self) -> None:
         threshold = date(2025, 9, 10)
         filings = [

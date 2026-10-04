@@ -6,8 +6,53 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+from opentelemetry.sdk._logs import LoggerProvider
 
-from politician_dashboard.observability import _configure_sdk, instrument_app
+from politician_dashboard.observability import (
+    _configure_sdk,
+    _otlp_log_exporter,
+    configure_logging,
+    instrument_app,
+)
+
+
+def test_standard_logging_record_exports_through_otel(monkeypatch):
+    import logging
+
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    exporter = InMemoryLogRecordExporter()
+    provider = LoggerProvider(resource=Resource.create({"service.name": "test"}))
+    provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+    root = logging.getLogger()
+    old_handlers = root.handlers[:]
+    root.handlers = [
+        handler for handler in old_handlers
+        if handler.__class__.__name__ != "LoggingHandler"
+    ]
+    try:
+        configure_logging(logger_provider=provider)
+        logging.getLogger("test.standard").warning(
+            "ingestion run finished",
+            extra={"ingest_run_id": 27, "ingest_status": "success"},
+        )
+        records = exporter.get_finished_logs()
+        assert len(records) == 1
+        record = records[0].log_record
+        assert record.body == "ingestion run finished"
+        assert record.attributes["ingest_run_id"] == 27
+        assert record.attributes["ingest_status"] == "success"
+    finally:
+        root.handlers = old_handlers
+        provider.shutdown()
+
+
+def test_log_exporter_uses_configured_otlp_protocol(monkeypatch):
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+    assert "proto.grpc" in _otlp_log_exporter().__module__
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+    assert "proto.http" in _otlp_log_exporter().__module__
 
 
 def test_resource_attributes_use_otel_environment(monkeypatch):

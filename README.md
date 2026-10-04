@@ -72,6 +72,10 @@ headers/protocol use the standard `OTEL_EXPORTER_OTLP_*` environment variables.
 For local development, leave these variables unset and the API starts without
 an exporter or telemetry backend. To export traces and metrics, set the endpoint
 and, if needed, `OTEL_EXPORTER_OTLP_PROTOCOL` to `grpc` or `http/protobuf`.
+Standard Python logging records use the same OTLP endpoint, protocol, and
+headers. Set `OTEL_LOGS_EXPORTER=none` to disable log export while retaining
+traces and metrics. Ingestion log events include run context, status, counts,
+and failure categories without exception messages or document contents.
 
 ### Run the dashboard
 
