@@ -133,17 +133,20 @@ export default function SignalsPage() {
   }
 
   return (
-    <section className="space-y-4">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Signals</h1>
-        <p className="text-muted-foreground text-sm">
+    <section className="page-stack">
+      <header className="page-heading">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+          Reviewable patterns
+        </p>
+        <h1 className="page-title">Signals</h1>
+        <p className="page-description">
           Patterns computed from the disclosures above. Each one links to the
           transactions that triggered it.
         </p>
-      </div>
+      </header>
 
       <div
-        className="flex items-center gap-1"
+        className="flex flex-wrap items-center gap-1 rounded-xl border bg-card p-1.5 shadow-sm sm:w-fit"
         role="group"
         aria-label="Signal type"
       >
@@ -165,47 +168,47 @@ export default function SignalsPage() {
         })}
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-        <div className="flex flex-col gap-1.5">
+      <div className="filter-panel grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-muted-foreground text-xs">Ticker</Label>
           <Input
             type="text"
             value={filters.ticker}
             placeholder="e.g. NVDA"
             maxLength={6}
-            className="h-9 w-28 uppercase"
+            className="w-full uppercase"
             onChange={(e) => patch({ ticker: e.target.value })}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-muted-foreground text-xs">Politician</Label>
           <Input
             type="text"
             value={filters.politician_id}
             placeholder="Search politician..."
-            className="h-9 w-72"
+            className="w-full"
             onChange={(e) => patch({ politician_id: e.target.value })}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-muted-foreground text-xs">Start date</Label>
           <Input
             type="date"
             value={filters.start_date}
-            className="h-9 w-40"
+            className="w-full"
             onChange={(e) => patch({ start_date: e.target.value })}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-muted-foreground text-xs">End date</Label>
           <Input
             type="date"
             value={filters.end_date}
-            className="h-9 w-40"
+            className="w-full"
             onChange={(e) => patch({ end_date: e.target.value })}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-muted-foreground text-xs">Pattern span</Label>
           <div
             className="flex items-center gap-1"

@@ -81,7 +81,7 @@ export default function PoliticianProfilePage() {
   const setTab = (t: string) => setSearchParams({ tab: t });
 
   return (
-    <section className="space-y-4">
+    <section className="page-stack">
       <p>
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link to="/politicians" className="flex items-center gap-1">
@@ -90,16 +90,23 @@ export default function PoliticianProfilePage() {
           </Link>
         </Button>
       </p>
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{pol.name}</h1>
-        <div className="text-muted-foreground flex flex-wrap gap-x-5 gap-y-1 text-sm">
-          <span>
+      <header className="page-heading">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+          Politician profile
+        </p>
+        <h1 className="page-title">{pol.name}</h1>
+        <div className="flex flex-wrap gap-2 text-sm">
+          <span className="inline-flex min-h-8 items-center rounded-md border bg-card px-2.5 text-muted-foreground">
             {pol.state_district} ({pol.state}/{pol.district})
           </span>
-          <span>{pol.filing_count} filings</span>
-          <span>{pol.transaction_count} transactions</span>
+          <span className="inline-flex min-h-8 items-center rounded-md border bg-card px-2.5 text-muted-foreground">
+            {pol.filing_count} filings
+          </span>
+          <span className="inline-flex min-h-8 items-center rounded-md border bg-card px-2.5 text-muted-foreground">
+            {pol.transaction_count} transactions
+          </span>
         </div>
-      </div>
+      </header>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -107,7 +114,7 @@ export default function PoliticianProfilePage() {
           <TabsTrigger value="filings">Filings</TabsTrigger>
         </TabsList>
       </Tabs>
-      <div className="pt-2">
+      <div>
         {tab === "transactions" ? (
           <TransactionsTab
             txns={txns}
@@ -147,13 +154,13 @@ function TransactionsTab({
   if (txns.length === 0) return <Empty message="No transactions." />;
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-        <div className="flex flex-col gap-1.5">
+      <div className="filter-panel grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-end">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-muted-foreground text-xs">Ticker</Label>
           <Input
             type="text"
             value={filters.ticker}
-            className="h-9 w-32"
+            className="w-full"
             onChange={(e) => setFilters({ ticker: e.target.value })}
           />
         </div>
@@ -171,7 +178,7 @@ function TransactionsTab({
           options={OWNERS}
         />
       </div>
-      <div className="rounded-lg border">
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
@@ -241,10 +248,10 @@ function ProfileSelect({
   optionLabel?: (value: string) => string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <Label className="text-muted-foreground text-xs">{label}</Label>
       <Select value={value || undefined} onValueChange={onValueChange}>
-        <SelectTrigger className="h-9 w-40">
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Any" />
         </SelectTrigger>
         <SelectContent>
@@ -263,7 +270,7 @@ function ProfileSelect({
 function FilingsTab({ filings }: { filings: FilingSummary[] }) {
   if (filings.length === 0) return <Empty message="No filings." />;
   return (
-    <div className="rounded-lg border">
+    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
       <Table>
         <TableHeader>
           <TableRow>

@@ -22,7 +22,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -70,6 +69,10 @@ export default function TransactionsPage() {
   const [data, setData] = useState<{ items: Transaction[]; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const sortKey = filters.sort.replace(/^-/, "");
+  const isVisiblePageSort =
+    sortKey === "asset_type_code" || sortKey === "disclosure_lag_days";
+  const apiSort = isVisiblePageSort ? defaults.sort : filters.sort;
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +90,7 @@ export default function TransactionsPage() {
       txn_date_max: filters.txn_date_max || undefined,
       amount_min: filters.amount_min ? Number(filters.amount_min) : undefined,
       amount_max: filters.amount_max ? Number(filters.amount_max) : undefined,
-      sort: filters.sort,
+      sort: apiSort,
     })
       .then((res) => {
         if (!cancelled) {
@@ -117,14 +120,23 @@ export default function TransactionsPage() {
     filters.txn_date_max,
     filters.amount_min,
     filters.amount_max,
-    filters.sort,
+    apiSort,
   ]);
 
   const patch = (p: Partial<TxnFilters>) => setFilters({ ...p, offset: 0 });
+  const visibleItems = sortVisibleTransactions(data?.items ?? [], filters.sort);
 
   return (
-    <section className="space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Recent Trades</h1>
+    <section className="page-stack">
+      <header className="page-heading">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+          Disclosure activity
+        </p>
+        <h1 className="page-title">Recent Trades</h1>
+        <p className="page-description">
+          Explore reported trades with filters for people, assets, dates, and disclosed ranges.
+        </p>
+      </header>
       <RealFilterBar filters={filters} patch={patch} />
 
       {loading && <Loading />}
@@ -133,74 +145,89 @@ export default function TransactionsPage() {
 
       {!loading && !error && data && data.items.length > 0 && (
         <>
-          <div className="rounded-lg border">
-            <Table className="min-w-[1472px] table-fixed">
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <p className="px-3 pb-1 pt-3 text-xs text-muted-foreground sm:sr-only">
+              On small screens, scroll within the table to view all columns.
+            </p>
+            <Table className="min-w-[1336px] w-full table-fixed">
               <TableHeader>
                 <TableRow>
                   <SortableTableHead
-                    label="Trade Date"
+                    label="Trade date"
                     sortKey="txn_date"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-[120px]"
+                    className="w-[110px]"
                   />
                   <SortableTableHead
                     label="Politician"
                     sortKey="politician_name"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-44 min-w-40"
+                    className="w-[155px]"
                   />
                   <SortableTableHead
                     label="Asset"
                     sortKey="asset_name"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-[380px] min-w-[380px]"
+                    className="min-w-[360px]"
                   />
                   <SortableTableHead
                     label="Ticker"
                     sortKey="ticker"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-[72px] text-center"
+                    className="w-[64px] text-center"
                   />
                   <SortableTableHead
                     label="Type"
                     sortKey="txn_type"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-[88px] text-center"
+                    className="w-[78px] text-center"
                   />
                   <SortableTableHead
                     label="Owner"
                     sortKey="owner"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-20 text-center"
+                    className="w-[72px] text-center"
                   />
-                  <TableHead className="w-[120px] text-center">Asset Type</TableHead>
+                  <SortableTableHead
+                    label="Asset type"
+                    sortKey="asset_type_code"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                    className="w-[112px] text-left"
+                  />
                   <SortableTableHead
                     label="Amount"
                     sortKey="amount_min"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-48 text-right"
+                    className="w-[145px] text-right"
                   />
-                  <TableHead className="w-[120px] text-right">Disclosure Lag</TableHead>
+                  <SortableTableHead
+                    label="Disclosure lag"
+                    sortKey="disclosure_lag_days"
+                    sort={filters.sort}
+                    onSort={(sort) => patch({ sort })}
+                    className="w-[115px] text-right"
+                  />
                   <SortableTableHead
                     label="Filing"
                     sortKey="doc_id"
                     sort={filters.sort}
                     onSort={(sort) => patch({ sort })}
-                    className="w-[120px] text-right"
+                    className="filing-column w-[125px] text-right"
                   />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.items.map((t) => (
+                {visibleItems.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell className="whitespace-nowrap tabular-nums">
+                    <TableCell className="w-[110px] whitespace-nowrap tabular-nums">
                       <TransactionDate
                         txnDate={t.txn_date}
                         flags={t.quality_flags}
@@ -208,31 +235,31 @@ export default function TransactionsPage() {
                         verifiedDate={t.verified_transaction_date}
                       />
                     </TableCell>
-                    <TableCell className="w-44 min-w-40 whitespace-normal break-words">
+                    <TableCell className="w-[155px] whitespace-normal break-words">
                       <PoliticianCell
                         id={t.politician_id}
                         name={t.politician_name}
                       />
                     </TableCell>
-                    <TableCell className="w-[380px] min-w-[380px] whitespace-normal break-words">
+                    <TableCell className="min-w-[360px] whitespace-normal break-words">
                       <div className="font-medium whitespace-normal break-words">
                         {t.asset_name}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center font-mono text-xs">
+                    <TableCell className="w-[64px] text-center font-mono text-xs">
                       {t.ticker?.trim() || "—"}
                     </TableCell>
-                    <TableCell className="text-center whitespace-nowrap">
+                    <TableCell className="w-[78px] text-center whitespace-nowrap">
                       {txnTypeLabel(t.txn_type)}
                     </TableCell>
-                    <TableCell className="text-center">{t.owner ?? "—"}</TableCell>
-                    <TableCell className="w-[120px] text-center text-xs whitespace-normal">
+                    <TableCell className="w-[72px] text-center">{t.owner ?? "—"}</TableCell>
+                    <TableCell className="w-[112px] whitespace-normal text-left text-xs">
                       {t.asset_type_code ? assetTypeLabel(t.asset_type_code) : "—"}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">
+                    <TableCell className="w-[145px] whitespace-nowrap text-right tabular-nums">
                       {formatAmount(t.amount_min, t.amount_max)}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">
+                    <TableCell className="w-[115px] whitespace-nowrap text-right tabular-nums">
                       <span
                         aria-label={
                           t.disclosure_lag_days === null
@@ -250,7 +277,7 @@ export default function TransactionsPage() {
                           : `${t.disclosure_lag_days} ${t.disclosure_lag_days === 1 ? "day" : "days"}`}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="filing-column w-[125px] text-right">
                       <Link
                         to={`/filings/${t.doc_id}`}
                         className="text-primary hover:underline"
@@ -283,6 +310,32 @@ function PoliticianCell({ id, name }: { id: string; name: string }) {
   );
 }
 
+function sortVisibleTransactions(items: Transaction[], sort: string): Transaction[] {
+  const key = sort.replace(/^-/, "");
+  if (key !== "asset_type_code" && key !== "disclosure_lag_days") return items;
+
+  const direction = sort.startsWith("-") ? -1 : 1;
+  return [...items].sort((left, right) => {
+    if (key === "asset_type_code") {
+      const leftLabel = left.asset_type_code
+        ? assetTypeLabel(left.asset_type_code).toLocaleLowerCase()
+        : null;
+      const rightLabel = right.asset_type_code
+        ? assetTypeLabel(right.asset_type_code).toLocaleLowerCase()
+        : null;
+      if (leftLabel === null) return rightLabel === null ? 0 : 1;
+      if (rightLabel === null) return -1;
+      return leftLabel.localeCompare(rightLabel) * direction;
+    }
+
+    const leftLag = left.disclosure_lag_days;
+    const rightLag = right.disclosure_lag_days;
+    if (leftLag === null) return rightLag === null ? 0 : 1;
+    if (rightLag === null) return -1;
+    return (leftLag - rightLag) * direction;
+  });
+}
+
 function FilterSelect({
   label,
   value,
@@ -299,10 +352,10 @@ function FilterSelect({
   placeholder?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <Label className="text-muted-foreground text-xs">{label}</Label>
       <Select value={value || undefined} onValueChange={onValueChange}>
-        <SelectTrigger className="h-9 w-40">
+        <SelectTrigger className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -337,24 +390,24 @@ function RealFilterBar({
     filters.amount_max;
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-      <div className="flex flex-col gap-1.5">
+    <div className={`filter-panel transaction-filter-grid${hasFilters ? " has-clear" : ""}`}>
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-muted-foreground text-xs">Politician</Label>
         <Input
           type="text"
           value={filters.politician_name}
           placeholder="Search politician name"
-          className="h-9 w-48"
+          className="w-full"
           onChange={(e) => patch({ politician_name: e.target.value })}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-muted-foreground text-xs">Ticker</Label>
         <Input
           type="text"
           value={filters.ticker}
           placeholder="e.g. NVDA"
-          className="h-9 w-32"
+          className="w-full"
           onChange={(e) => patch({ ticker: e.target.value })}
         />
       </div>
@@ -382,41 +435,41 @@ function RealFilterBar({
         options={ASSET_TYPES}
         optionLabel={assetTypeLabel}
       />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-muted-foreground text-xs">From date</Label>
         <Input
           type="date"
           value={filters.txn_date_min}
-          className="h-9 w-40"
+          className="w-full"
           onChange={(e) => patch({ txn_date_min: e.target.value })}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-muted-foreground text-xs">To date</Label>
         <Input
           type="date"
           value={filters.txn_date_max}
-          className="h-9 w-40"
+          className="w-full"
           onChange={(e) => patch({ txn_date_max: e.target.value })}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-muted-foreground text-xs">Min amount</Label>
         <Input
           type="number"
           value={filters.amount_min}
           placeholder="10000"
-          className="h-9 w-32"
+          className="w-full"
           onChange={(e) => patch({ amount_min: e.target.value })}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-muted-foreground text-xs">Max amount</Label>
         <Input
           type="number"
           value={filters.amount_max}
           placeholder="50000"
-          className="h-9 w-32"
+          className="w-full"
           onChange={(e) => patch({ amount_max: e.target.value })}
         />
       </div>

@@ -63,7 +63,7 @@ export default function FilingDetailPage() {
   ];
 
   return (
-    <section className="space-y-4">
+    <section className="page-stack">
       <p>
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link to="/transactions" className="flex items-center gap-1">
@@ -72,9 +72,12 @@ export default function FilingDetailPage() {
           </Link>
         </Button>
       </p>
-      <h1 className="text-2xl font-semibold tracking-tight">
-        Filing {filing.doc_id}
-      </h1>
+      <header className="page-heading">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+          Source filing
+        </p>
+        <h1 className="page-title font-mono">Filing {filing.doc_id}</h1>
+      </header>
 
       <Card>
         <CardHeader>
@@ -99,7 +102,7 @@ export default function FilingDetailPage() {
                   rel="noreferrer"
                   className="text-primary inline-flex items-center gap-1 hover:underline"
                 >
-                  {filing.pdf_url}
+                  <span className="break-all">{filing.pdf_url}</span>
                   <ExternalLink className="size-3.5" />
                 </a>
               </dd>
@@ -158,10 +161,10 @@ export default function FilingDetailPage() {
         </Card>
       )}
 
-      <h2 className="text-xl font-semibold tracking-tight">
+      <h2 className="section-heading">
         Transactions ({filing.transactions.length})
       </h2>
-      <div className="rounded-lg border">
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>

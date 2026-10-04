@@ -108,15 +108,15 @@ describe("TransactionsPage", () => {
         .trim(),
     );
     expect(headers).toEqual([
-      "Trade Date",
+      "Trade date",
       "Politician",
       "Asset",
       "Ticker",
       "Type",
       "Owner",
-      "Asset Type",
+      "Asset type",
       "Amount",
-      "Disclosure Lag",
+      "Disclosure lag",
       "Filing",
     ]);
     expect(screen.getAllByText("—")).toHaveLength(4);
@@ -129,7 +129,16 @@ describe("TransactionsPage", () => {
       "href",
       "/filings/20030002",
     );
-    expect(screen.getByRole("table")).toHaveClass("min-w-[1472px]");
+    expect(screen.getByRole("columnheader", { name: "Filing" })).toHaveClass(
+      "filing-column",
+    );
+    expect(screen.getByRole("link", { name: "20030002" }).closest("td")).toHaveClass(
+      "filing-column",
+    );
+    expect(screen.getByRole("table")).toHaveClass("min-w-[1336px]");
+    expect(
+      screen.getByPlaceholderText("Search politician name").closest(".transaction-filter-grid"),
+    ).toBeInTheDocument();
     expect(screen.getByText(assetName)).toHaveClass(
       "whitespace-normal",
       "break-words",
@@ -137,7 +146,7 @@ describe("TransactionsPage", () => {
     );
     expect(
       screen.getAllByRole("link", { name: "Nancy Pelosi" })[0].parentElement,
-    ).toHaveClass("min-w-40");
+    ).toHaveClass("w-[155px]");
     expect(
       screen.getByRole("img", { name: /Reported date may be inconsistent/ }),
     ).toBeInTheDocument();
@@ -152,7 +161,7 @@ describe("TransactionsPage", () => {
       </MemoryRouter>,
     );
 
-    await screen.findByText(assetName);
+    await screen.findAllByText(assetName);
     const amountHeader = screen.getByRole("button", { name: "Sort by Amount" });
     expect(amountHeader).toBeInTheDocument();
     fireEvent.click(amountHeader);
@@ -169,6 +178,88 @@ describe("TransactionsPage", () => {
       expect(search.get("sort")).toBe("amount_min");
       expect(search.get("offset")).toBe("0");
     });
+  });
+
+  it("sorts asset type alphabetically on the loaded page without sending an unsupported API sort", async () => {
+    const assetTypes = {
+      ...sample,
+      items: [
+        { ...sample.items[0], asset_type_code: "ST" },
+        { ...sample.items[1], asset_type_code: "BA" },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(assetTypes), { status: 200 })),
+    );
+    render(
+      <MemoryRouter initialEntries={["/transactions"]}>
+        <TransactionsPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText(assetName);
+    const header = screen.getByRole("button", { name: "Sort by Asset type" });
+    fireEvent.click(header);
+
+    expect(header.closest("th")).toHaveAttribute("aria-sort", "ascending");
+    let cells = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelectorAll("td")[6]?.textContent);
+    expect(cells).toEqual([
+      "Bank Accounts, Money Market Accounts and CDs",
+      "Stocks (including ADRs)",
+    ]);
+    fireEvent.click(header);
+    expect(header.closest("th")).toHaveAttribute("aria-sort", "descending");
+    cells = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelectorAll("td")[6]?.textContent);
+    expect(cells).toEqual([
+      "Stocks (including ADRs)",
+      "Bank Accounts, Money Market Accounts and CDs",
+    ]);
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+  });
+
+  it("sorts disclosure lag numerically and keeps missing values last", async () => {
+    const lags = {
+      ...sample,
+      items: [
+        { ...sample.items[0], disclosure_lag_days: 31 },
+        { ...sample.items[1], disclosure_lag_days: 9 },
+        { ...sample.items[0], id: 3, disclosure_lag_days: null },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(lags), { status: 200 })),
+    );
+    render(
+      <MemoryRouter initialEntries={["/transactions"]}>
+        <TransactionsPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findAllByText(assetName);
+    const header = screen.getByRole("button", { name: "Sort by Disclosure lag" });
+    fireEvent.click(header);
+
+    expect(header.closest("th")).toHaveAttribute("aria-sort", "ascending");
+    let cells = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelectorAll("td")[8]?.textContent);
+    expect(cells).toEqual(["9 days", "31 days", "—"]);
+    fireEvent.click(header);
+    expect(header.closest("th")).toHaveAttribute("aria-sort", "descending");
+    cells = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelectorAll("td")[8]?.textContent);
+    expect(cells).toEqual(["31 days", "9 days", "—"]);
   });
 
   it("preserves open-ended amount display", async () => {

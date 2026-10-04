@@ -56,7 +56,7 @@ export default function SignalDetailPage() {
   const noun = SIGNAL_TXN_NOUN[signal.type];
 
   return (
-    <section className="space-y-4">
+    <section className="page-stack">
       <p>
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link
@@ -69,25 +69,28 @@ export default function SignalDetailPage() {
         </Button>
       </p>
 
-      <div className="space-y-1">
+      <header className="page-heading">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+          Signal evidence
+        </p>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="page-title font-mono">
             {signal.ticker}
           </h1>
           <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
             {signal.label}
           </span>
         </div>
-        <p className="text-sm">
+        <p className="text-sm font-medium">
           {signal.politician_count} politician
           {signal.politician_count === 1 ? "" : "s"} disclosed{" "}
           {noun.many} of {signal.ticker}.
         </p>
-        <p className="text-muted-foreground text-sm">
+        <p className="page-description">
           {signal.asset_name ?? signal.ticker} · {signal.start_date} –{" "}
           {signal.end_date} ({signal.span_days} days)
         </p>
-      </div>
+      </header>
 
       <Card>
         <CardHeader>
@@ -183,7 +186,7 @@ export default function SignalDetailPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border">
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow>

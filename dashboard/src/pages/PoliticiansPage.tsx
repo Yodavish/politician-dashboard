@@ -62,27 +62,35 @@ export default function PoliticiansPage() {
   const patch = (p: Partial<PolFilters>) => setFilters({ ...p, offset: 0 });
 
   return (
-    <section className="space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Politicians</h1>
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-        <div className="flex flex-col gap-1.5">
+    <section className="page-stack">
+      <header className="page-heading">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+          Public officials
+        </p>
+        <h1 className="page-title">Politicians</h1>
+        <p className="page-description">
+          Browse members of Congress and open a profile to review their filings and transactions.
+        </p>
+      </header>
+      <div className="filter-panel grid grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-2xl">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-muted-foreground text-xs">State</Label>
           <Input
             type="text"
             value={filters.state}
             placeholder="e.g. CA"
             maxLength={2}
-            className="h-9 w-32"
+            className="w-full"
             onChange={(e) => patch({ state: e.target.value })}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-muted-foreground text-xs">Name</Label>
           <Input
             type="text"
             value={filters.name}
             placeholder="Search politicians"
-            className="h-9 w-56"
+            className="w-full"
             onChange={(e) => patch({ name: e.target.value })}
           />
         </div>
@@ -94,7 +102,7 @@ export default function PoliticiansPage() {
 
       {!loading && !error && items.length > 0 && (
         <>
-          <div className="rounded-lg border">
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow>

@@ -39,44 +39,45 @@ export default function HomePage() {
   if (!highlights) return null;
 
   return (
-    <section className="space-y-8">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          What’s Unusual Right Now?
-        </h1>
-        <p className="text-muted-foreground text-sm">
+    <section className="page-stack">
+      <header className="page-heading">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+          Public disclosure records
+        </p>
+        <h1 className="page-title">What’s Unusual Right Now?</h1>
+        <p className="page-description">
           Recent disclosure activity surfaced by clear, reviewable rules. Trade
           dates: {highlights.activity_window.start_date} – {highlights.activity_window.end_date}.
         </p>
       </header>
 
-      <section className="space-y-3" aria-labelledby="clusters-heading">
+      <section className="space-y-4" aria-labelledby="clusters-heading">
         <div>
-          <h2 id="clusters-heading" className="text-lg font-semibold">
+          <h2 id="clusters-heading" className="section-heading">
             Recent Cluster Activity
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="section-description">
             The newest qualifying purchase and sale clusters in the dataset.
           </p>
         </div>
         {highlights.recent_cluster_activity.length === 0 ? (
           <Empty message="No qualifying clusters are available in this six-month window." />
         ) : (
-          <div className="divide-y rounded-lg border bg-card">
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
             {highlights.recent_cluster_activity.map((item) => (
-              <article key={item.signal_id} className="space-y-2 p-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="font-semibold">
-                    {item.title}: {item.ticker}
+              <article key={item.signal_id} className="group space-y-2 border-b p-4 last:border-b-0 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                  <h3 className="font-semibold tracking-tight">
+                    {item.title}: <span className="font-mono text-primary">{item.ticker}</span>
                   </h3>
-                  <span className="text-muted-foreground text-sm">
+                  <span className="numeric text-muted-foreground text-sm">
                     {item.date_start} – {item.date_end}
                   </span>
                 </div>
-                <p className="text-sm">{item.summary}</p>
+                <p className="text-sm leading-relaxed">{item.summary}</p>
                 <p className="text-muted-foreground text-sm">{item.reason}</p>
                 <Link
-                  className="text-primary text-sm hover:underline"
+                  className="inline-flex min-h-10 items-center text-sm font-medium text-primary hover:underline"
                   to={item.detail_url}
                 >
                   Review cluster evidence
@@ -87,12 +88,12 @@ export default function HomePage() {
         )}
       </section>
 
-      <section className="space-y-3" aria-labelledby="largest-heading">
+      <section className="space-y-4" aria-labelledby="largest-heading">
         <div>
-          <h2 id="largest-heading" className="text-lg font-semibold">
+          <h2 id="largest-heading" className="section-heading">
             Largest Disclosed Transactions
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="section-description">
             Ranked by disclosed minimum amount. Overlapping ranges may prevent
             a definitive comparison.
           </p>
@@ -100,22 +101,22 @@ export default function HomePage() {
         {highlights.largest_disclosed_transactions.length === 0 ? (
           <Empty message="No eligible purchase or sale disclosures are available in this six-month window." />
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             {highlights.largest_disclosed_transactions.map((item) => (
-              <Card key={item.type}>
-                <CardHeader>
-                  <CardTitle className="text-base">{item.title}</CardTitle>
+              <Card key={item.type} className="gap-4 py-5">
+                <CardHeader className="gap-2">
+                  <CardTitle className="text-base tracking-tight">{item.title}</CardTitle>
                   <CardDescription>
                     {item.ticker ?? "No ticker"} · {item.txn_date}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <p className="text-sm">
+                  <p className="numeric text-sm font-medium">
                     {item.politician_name} · {item.amount_raw || formatAmount(item.amount_min, item.amount_max)}
                   </p>
                   <p className="text-muted-foreground text-xs">{item.reason}</p>
                   <Link
-                    className="text-primary text-sm hover:underline"
+                    className="inline-flex min-h-10 items-center text-sm font-medium text-primary hover:underline"
                     to={item.detail_url}
                   >
                     View filing

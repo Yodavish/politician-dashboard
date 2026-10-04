@@ -4,7 +4,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="space-y-3 py-6" data-testid="loading">
+    <div
+      className="space-y-3 py-6"
+      data-testid="loading"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
       <Skeleton className="h-4 w-1/3" />
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-5/6" />
