@@ -390,8 +390,7 @@ def _run_curation(args, conn) -> int:
     return 2
 
 
-def main(argv: list[str] | None = None) -> int:
-    configure_logging()
+def _run_cli(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     database_url = args.database_url or get_database_url()
 
@@ -463,6 +462,14 @@ def main(argv: list[str] | None = None) -> int:
             print(_format_result(result))
 
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    logger_provider = configure_logging()
+    try:
+        return _run_cli(argv)
+    finally:
+        logger_provider.force_flush()
 
 
 if __name__ == "__main__":

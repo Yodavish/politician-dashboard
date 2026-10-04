@@ -10,7 +10,9 @@ from __future__ import annotations
 from datetime import date
 
 import psycopg
+import pytest
 
+import politician_dashboard.ingest.__main__ as cli
 from politician_dashboard.ingest.__main__ import main
 from politician_dashboard.ingest.curation import verify_transaction
 from politician_dashboard.ingest.models import Filing, Transaction
@@ -234,6 +236,40 @@ class TestRecomputeQualityFlags:
 
 
 class TestRecomputeCli:
+    def test_main_flushes_logging_provider_after_return(self, monkeypatch):
+        class Provider:
+            flushes = 0
+
+            def force_flush(self):
+                self.flushes += 1
+                return True
+
+        provider = Provider()
+        monkeypatch.setattr(cli, "configure_logging", lambda: provider)
+        monkeypatch.setattr(cli, "_run_cli", lambda _argv: 3)
+
+        assert main([]) == 3
+        assert provider.flushes == 1
+
+    def test_main_flushes_logging_provider_when_cli_raises(self, monkeypatch):
+        class Provider:
+            flushes = 0
+
+            def force_flush(self):
+                self.flushes += 1
+                return True
+
+        provider = Provider()
+        monkeypatch.setattr(cli, "configure_logging", lambda: provider)
+
+        def fail(_argv):
+            raise RuntimeError("CLI failure")
+
+        monkeypatch.setattr(cli, "_run_cli", fail)
+        with pytest.raises(RuntimeError, match="CLI failure"):
+            main([])
+        assert provider.flushes == 1
+
     def test_recompute_requires_as_of(self):
         assert main(["--recompute-flags", "--database-url", "postgresql://nowhere"]) == 2
 
