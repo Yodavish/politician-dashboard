@@ -23,6 +23,7 @@ Curation (explicit, provenance-required; never inferred automatically):
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from datetime import date, datetime, timezone
 
@@ -147,6 +148,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--database-url",
         default=None,
         help="Override the DATABASE_URL from the environment.",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str.upper,
+        choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+        default="INFO",
+        help="Minimum level for ingestion logs (default: INFO).",
     )
 
     curation = parser.add_argument_group(
@@ -392,6 +400,7 @@ def _run_curation(args, conn) -> int:
 
 def _run_cli(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    logging.getLogger("politician_dashboard.ingest").setLevel(args.log_level)
     database_url = args.database_url or get_database_url()
 
     if args.recompute_flags:

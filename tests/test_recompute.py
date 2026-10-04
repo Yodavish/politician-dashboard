@@ -7,6 +7,7 @@ throwaway database (``temp_database_url``) and skip when no reachable
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 import psycopg
@@ -236,6 +237,41 @@ class TestRecomputeQualityFlags:
 
 
 class TestRecomputeCli:
+    def test_cli_log_level_enables_ingestion_info_without_changing_root(
+        self, caplog
+    ):
+        root_logger = logging.getLogger()
+        ingest_logger = logging.getLogger("politician_dashboard.ingest")
+        previous_root_level = root_logger.level
+        previous_ingest_level = ingest_logger.level
+        root_logger.setLevel(logging.WARNING)
+        caplog.handler.setLevel(logging.INFO)
+        try:
+            assert (
+                main(
+                    [
+                        "--log-level",
+                        "INFO",
+                        "--recompute-flags",
+                        "--database-url",
+                        "postgresql://unused",
+                    ]
+                )
+                == 2
+            )
+
+            logging.getLogger("politician_dashboard.ingest.level_test").info(
+                "ingestion info is enabled"
+            )
+            assert root_logger.level == logging.WARNING
+            assert any(
+                record.getMessage() == "ingestion info is enabled"
+                for record in caplog.records
+            )
+        finally:
+            ingest_logger.setLevel(previous_ingest_level)
+            root_logger.setLevel(previous_root_level)
+
     def test_main_flushes_logging_provider_after_return(self, monkeypatch):
         class Provider:
             flushes = 0
