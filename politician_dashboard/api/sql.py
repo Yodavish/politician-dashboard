@@ -24,6 +24,58 @@ TRANSACTION_SORTS: dict[str, str] = {
     "ticker": "lower(t.ticker)",
     "txn_type": "t.txn_type",
     "owner": "lower(t.owner_token)",
+    "asset_type_code": """lower(CASE t.asset_type_code
+        WHEN '4K' THEN '401K and Other Non-Federal Retirement Accounts'
+        WHEN '5C' THEN '529 College Savings Plan'
+        WHEN '5F' THEN '529 Portfolio'
+        WHEN '5P' THEN '529 Prepaid Tuition Plan'
+        WHEN 'AB' THEN 'Asset-Backed Securities'
+        WHEN 'BA' THEN 'Bank Accounts, Money Market Accounts and CDs'
+        WHEN 'BK' THEN 'Brokerage Accounts'
+        WHEN 'CO' THEN 'Collectibles'
+        WHEN 'CS' THEN 'Corporate Securities (Bonds and Notes)'
+        WHEN 'CT' THEN 'Cryptocurrency'
+        WHEN 'DB' THEN 'Defined Benefit Pension'
+        WHEN 'DO' THEN 'Debts Owed to the Filer'
+        WHEN 'DS' THEN 'Delaware Statutory Trust'
+        WHEN 'EF' THEN 'Exchange Traded Funds (ETF)'
+        WHEN 'EQ' THEN 'Excepted/Qualified Blind Trust'
+        WHEN 'ET' THEN 'Exchange Traded Notes'
+        WHEN 'FA' THEN 'Farms'
+        WHEN 'FE' THEN 'Foreign Exchange Position (Currency)'
+        WHEN 'FN' THEN 'Fixed Annuity'
+        WHEN 'FU' THEN 'Futures'
+        WHEN 'GS' THEN 'Government Securities and Agency Debt'
+        WHEN 'HE' THEN 'Hedge Funds & Private Equity Funds (EIF)'
+        WHEN 'HN' THEN 'Hedge Funds & Private Equity Funds (non-EIF)'
+        WHEN 'IC' THEN 'Investment Club'
+        WHEN 'IH' THEN 'IRA (Held in Cash)'
+        WHEN 'IP' THEN 'Intellectual Property & Royalties'
+        WHEN 'IR' THEN 'IRA'
+        WHEN 'MA' THEN 'Managed Accounts (e.g., SMA and UMA)'
+        WHEN 'MF' THEN 'Mutual Funds'
+        WHEN 'MO' THEN 'Mineral/Oil/Solar Energy Rights'
+        WHEN 'OI' THEN 'Ownership Interest (Holding Investments)'
+        WHEN 'OL' THEN 'Ownership Interest (Engaged in a Trade or Business)'
+        WHEN 'OP' THEN 'Options'
+        WHEN 'OT' THEN 'Other'
+        WHEN 'PE' THEN 'Pensions'
+        WHEN 'PM' THEN 'Precious Metals'
+        WHEN 'PS' THEN 'Stock (Not Publicly Traded)'
+        WHEN 'RE' THEN 'Real Estate Invest. Trust (REIT)'
+        WHEN 'RF' THEN 'REIT (EIF)'
+        WHEN 'RN' THEN 'REIT (non-EIF)'
+        WHEN 'RP' THEN 'Real Property'
+        WHEN 'RS' THEN 'Restricted Stock Units (RSUs)'
+        WHEN 'SA' THEN 'Stock Appreciation Right'
+        WHEN 'ST' THEN 'Stocks (including ADRs)'
+        WHEN 'TR' THEN 'Trust'
+        WHEN 'VA' THEN 'Variable Annuity'
+        WHEN 'VI' THEN 'Variable Insurance'
+        WHEN 'WU' THEN 'Whole/Universal Insurance'
+        ELSE t.asset_type_code
+    END)""",
+    "disclosure_lag_days": "(f.filing_date - t.txn_date)",
     "amount_min": "t.amount_min",
     "amount_max": "t.amount_max",
     "created_at": "f.created_at",

@@ -432,12 +432,91 @@ class TestSorting:
     def test_all_recent_trade_sort_fields_are_supported(self, api_client):
         for sort in (
             "txn_date", "politician_name", "asset_name", "ticker", "txn_type",
-            "owner", "amount_min", "doc_id",
+            "owner", "asset_type_code", "amount_min", "disclosure_lag_days",
+            "doc_id",
         ):
             response = api_client.get("/transactions", params={"sort": sort})
             assert response.status_code == 200, sort
             assert response.json()["pagination"]["total"] == 6
 
+    def test_asset_type_sorts_by_display_label_before_pagination(self, api_client):
+        import psycopg
+
+        with psycopg.connect(api_client.app.state.database_url, autocommit=True) as conn:
+            conn.execute(
+                "UPDATE transactions SET asset_type_code = CASE ticker "
+                "WHEN 'GSK' THEN 'ST' WHEN 'AAPL' THEN 'BA' "
+                "WHEN 'VTI' THEN 'CS' WHEN 'MSFT' THEN NULL "
+                "WHEN 'CSCO' THEN 'GS' WHEN 'NVDA' THEN 'ST' END"
+            )
+
+        labels = {
+            "BA": "Bank Accounts, Money Market Accounts and CDs",
+            "CS": "Corporate Securities (Bonds and Notes)",
+            "GS": "Government Securities and Agency Debt",
+            "ST": "Stocks (including ADRs)",
+        }
+        for sort, expected in (
+            ("asset_type_code", ["BA", "CS", "GS", "ST", "ST", None]),
+            ("-asset_type_code", ["ST", "ST", "GS", "CS", "BA", None]),
+        ):
+            items = api_client.get(
+                "/transactions", params={"sort": sort}
+            ).json()["items"]
+            codes = [item["asset_type_code"] for item in items]
+            assert codes == expected
+
+            # Check the visible labels, rather than code order, for the known
+            # asset types represented in this fixture.
+            display_labels = [labels[code] for code in codes if code is not None]
+            assert display_labels == sorted(
+                display_labels, reverse=sort.startswith("-")
+            )
+
+            paged = [
+                item["asset_type_code"]
+                for offset in (0, 2, 4)
+                for item in api_client.get(
+                    "/transactions",
+                    params={"sort": sort, "limit": 2, "offset": offset},
+                ).json()["items"]
+            ]
+            assert paged == expected
+
+    def test_disclosure_lag_sorts_before_pagination_and_keeps_nulls_last(
+        self, api_client
+    ):
+        import psycopg
+
+        with psycopg.connect(api_client.app.state.database_url, autocommit=True) as conn:
+            conn.execute(
+                "UPDATE filings SET filing_date = CASE doc_id "
+                "WHEN '20032062' THEN NULL "
+                "WHEN '20026537' THEN DATE '2023-04-11' "
+                "WHEN '20026727' THEN DATE '2024-02-12' END"
+            )
+
+        for sort, reverse in (
+            ("disclosure_lag_days", False),
+            ("-disclosure_lag_days", True),
+        ):
+            items = api_client.get(
+                "/transactions", params={"sort": sort}
+            ).json()["items"]
+            lags = [item["disclosure_lag_days"] for item in items]
+            present = [lag for lag in lags if lag is not None]
+            assert present == sorted(present, reverse=reverse)
+            assert lags[-2:] == [None, None]
+
+            paged = [
+                item["id"]
+                for offset in (0, 2, 4)
+                for item in api_client.get(
+                    "/transactions",
+                    params={"sort": sort, "limit": 2, "offset": offset},
+                ).json()["items"]
+            ]
+            assert paged == [item["id"] for item in items]
     def test_recent_trade_text_and_date_sorting(self, api_client):
         for sort, key in (
             ("politician_name", "politician_name"),

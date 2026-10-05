@@ -69,10 +69,6 @@ export default function TransactionsPage() {
   const [data, setData] = useState<{ items: Transaction[]; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const sortKey = filters.sort.replace(/^-/, "");
-  const isVisiblePageSort =
-    sortKey === "asset_type_code" || sortKey === "disclosure_lag_days";
-  const apiSort = isVisiblePageSort ? defaults.sort : filters.sort;
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +86,7 @@ export default function TransactionsPage() {
       txn_date_max: filters.txn_date_max || undefined,
       amount_min: filters.amount_min ? Number(filters.amount_min) : undefined,
       amount_max: filters.amount_max ? Number(filters.amount_max) : undefined,
-      sort: apiSort,
+      sort: filters.sort,
     })
       .then((res) => {
         if (!cancelled) {
@@ -120,11 +116,11 @@ export default function TransactionsPage() {
     filters.txn_date_max,
     filters.amount_min,
     filters.amount_max,
-    apiSort,
+    filters.sort,
   ]);
 
   const patch = (p: Partial<TxnFilters>) => setFilters({ ...p, offset: 0 });
-  const visibleItems = sortVisibleTransactions(data?.items ?? [], filters.sort);
+  const items = data?.items ?? [];
 
   return (
     <section className="page-stack">
@@ -225,7 +221,7 @@ export default function TransactionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visibleItems.map((t) => (
+                {items.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell className="w-[110px] whitespace-nowrap tabular-nums">
                       <TransactionDate
@@ -308,32 +304,6 @@ function PoliticianCell({ id, name }: { id: string; name: string }) {
       {name}
     </Link>
   );
-}
-
-function sortVisibleTransactions(items: Transaction[], sort: string): Transaction[] {
-  const key = sort.replace(/^-/, "");
-  if (key !== "asset_type_code" && key !== "disclosure_lag_days") return items;
-
-  const direction = sort.startsWith("-") ? -1 : 1;
-  return [...items].sort((left, right) => {
-    if (key === "asset_type_code") {
-      const leftLabel = left.asset_type_code
-        ? assetTypeLabel(left.asset_type_code).toLocaleLowerCase()
-        : null;
-      const rightLabel = right.asset_type_code
-        ? assetTypeLabel(right.asset_type_code).toLocaleLowerCase()
-        : null;
-      if (leftLabel === null) return rightLabel === null ? 0 : 1;
-      if (rightLabel === null) return -1;
-      return leftLabel.localeCompare(rightLabel) * direction;
-    }
-
-    const leftLag = left.disclosure_lag_days;
-    const rightLag = right.disclosure_lag_days;
-    if (leftLag === null) return rightLag === null ? 0 : 1;
-    if (rightLag === null) return -1;
-    return (leftLag - rightLag) * direction;
-  });
 }
 
 function FilterSelect({

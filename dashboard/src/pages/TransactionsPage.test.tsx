@@ -180,7 +180,7 @@ describe("TransactionsPage", () => {
     });
   });
 
-  it("sorts asset type alphabetically on the loaded page without sending an unsupported API sort", async () => {
+  it("sends Asset Type sorting to the API", async () => {
     const assetTypes = {
       ...sample,
       items: [
@@ -188,10 +188,10 @@ describe("TransactionsPage", () => {
         { ...sample.items[1], asset_type_code: "BA" },
       ],
     };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(JSON.stringify(assetTypes), { status: 200 })),
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(assetTypes), { status: 200 }),
     );
+    vi.stubGlobal("fetch", fetchMock);
     render(
       <MemoryRouter initialEntries={["/transactions"]}>
         <TransactionsPage />
@@ -203,28 +203,14 @@ describe("TransactionsPage", () => {
     fireEvent.click(header);
 
     expect(header.closest("th")).toHaveAttribute("aria-sort", "ascending");
-    let cells = screen
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.querySelectorAll("td")[6]?.textContent);
-    expect(cells).toEqual([
-      "Bank Accounts, Money Market Accounts and CDs",
-      "Stocks (including ADRs)",
-    ]);
-    fireEvent.click(header);
-    expect(header.closest("th")).toHaveAttribute("aria-sort", "descending");
-    cells = screen
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.querySelectorAll("td")[6]?.textContent);
-    expect(cells).toEqual([
-      "Stocks (including ADRs)",
-      "Bank Accounts, Money Market Accounts and CDs",
-    ]);
-    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        expect.stringContaining("sort=asset_type_code"),
+      );
+    });
   });
 
-  it("sorts disclosure lag numerically and keeps missing values last", async () => {
+  it("sends Disclosure Lag sorting to the API in both directions", async () => {
     const lags = {
       ...sample,
       items: [
@@ -233,11 +219,11 @@ describe("TransactionsPage", () => {
         { ...sample.items[0], id: 3, disclosure_lag_days: null },
       ],
     };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(JSON.stringify(lags), { status: 200 })),
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(lags), { status: 200 }),
     );
-    render(
+    vi.stubGlobal("fetch", fetchMock);
+    const { unmount } = render(
       <MemoryRouter initialEntries={["/transactions"]}>
         <TransactionsPage />
       </MemoryRouter>,
@@ -247,19 +233,30 @@ describe("TransactionsPage", () => {
     const header = screen.getByRole("button", { name: "Sort by Disclosure lag" });
     fireEvent.click(header);
 
-    expect(header.closest("th")).toHaveAttribute("aria-sort", "ascending");
-    let cells = screen
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.querySelectorAll("td")[8]?.textContent);
-    expect(cells).toEqual(["9 days", "31 days", "—"]);
-    fireEvent.click(header);
-    expect(header.closest("th")).toHaveAttribute("aria-sort", "descending");
-    cells = screen
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.querySelectorAll("td")[8]?.textContent);
-    expect(cells).toEqual(["31 days", "9 days", "—"]);
+    await waitFor(() => {
+      expect(header.closest("th")).toHaveAttribute("aria-sort", "ascending");
+    });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        expect.stringContaining("sort=disclosure_lag_days"),
+      );
+    });
+    unmount();
+
+    const descendingFetch = vi.fn(
+      async () => new Response(JSON.stringify(lags), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", descendingFetch);
+    render(
+      <MemoryRouter initialEntries={["/transactions?sort=-disclosure_lag_days"]}>
+        <TransactionsPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(descendingFetch).toHaveBeenCalledWith(
+        expect.stringContaining("sort=-disclosure_lag_days"),
+      );
+    });
   });
 
   it("preserves open-ended amount display", async () => {
