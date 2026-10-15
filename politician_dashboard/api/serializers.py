@@ -31,7 +31,7 @@ def filing_dict(row) -> dict:
         "pdf_url": pdf_url,
         "downloaded_at": downloaded_at,
         "created_at": created_at,
-        "transaction_count": int(transaction_count),
+        "transaction_count": int(transaction_count) + 1,
     }
     if len(row) >= 19:
         result.update({
